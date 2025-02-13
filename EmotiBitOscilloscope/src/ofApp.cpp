@@ -3,8 +3,11 @@
 #include <algorithm>
 #include "EmotiBitOfUtils.h"
 
+#pragma region EmotiBitStuff
 
-//--------------------------------------------------------------
+
+
+/*
 void ofApp::setup() {
 	ofLogToConsole();
 #ifdef TARGET_MAC_OS
@@ -77,7 +80,7 @@ void ofApp::update() {
 
 	updateMenuButtons();
 }
-
+*/
 
 
 // ToDo: This function  should be removed once we complete our move to xmlFileSettings
@@ -203,11 +206,12 @@ void ofApp::removeDataStream(std::string typetag)
 		}
 	}
 }
-
+#pragma endregion
 //--------------------------------------------------------------
 void ofApp::draw() {
-	drawOscilloscopes();
-	drawConsole();
+	//drawOscilloscopes();
+	//drawConsole();
+	DrawNewGui();
 }
 
 //--------------------------------------------------------------
@@ -469,6 +473,9 @@ void ofApp::gotMessage(ofMessage msg) {
 void ofApp::dragEvent(ofDragInfo dragInfo) {
 
 }
+#pragma region EmotiBitStuff
+
+
 
 void ofApp::recordButtonPressed(bool & recording) {
 	if (recording) {
@@ -1804,3 +1811,155 @@ bool ofApp::startUdpOutput()
 
 	return false;
 }
+#pragma endregion
+#pragma region NewGuiStuff
+
+void ofApp::setup(){
+	newGui.setup();
+	discoveredDevices = emotiBitWiFi.getdiscoveredEmotibits();
+	deviceSelectedNew.resize(discoveredDevices.size(), false);
+	devicesBatteryLevel.resize(discoveredDevices.size(), .0f);
+	devicesPowerMode.resize(discoveredDevices.size(), PowerMode::LOW_POWER);
+	selectedTimeSlot = 5;
+	customTimeSlot = 5;
+	devicelistIndex = 0;
+}
+
+void ofApp::update()
+{
+	if (recordButtonPressedNew)
+	{
+		for(auto it = discoveredDevices.begin(); it != discoveredDevices.end(); it++)
+		{
+			string deviceId = it->first;
+			it->second.isRecording = true;
+		}
+		recordButtonPressedNew = false;
+	}
+}
+
+void ofApp::DrawNewGui() 
+{
+	newGui.begin();
+	bool open = true;
+	ImVec2 textBoxSize = ImVec2(100, 20);
+	//Left panel: device list
+	if (ImGui::Begin("Devices", &open, ImGuiWindowFlags_NoCollapse)){
+
+		CenteredTextBox("Device names", textBoxSize, "DeviceNameTextbox");
+		ImGui::SameLine();
+
+		CenteredTextBox("Battery", textBoxSize, "BatteryTextbox");
+		ImGui::SameLine();
+
+		if (ImGui::Button("PowerMode", textBoxSize))
+		{
+			ImGui::OpenPopup("PowerModeDropDown");
+		}
+		if (ImGui::BeginPopup("PowerModeDropDown"))
+		{
+			//TODO: Set selected power mode to selected emotibits
+			if (ImGui::Selectable(GUI_STRING_HIBERNATE.c_str()))
+			{
+				 
+				ImGui::CloseCurrentPopup();
+			}
+			if (ImGui::Selectable(GUI_STRING_LOW_POWER.c_str()))
+			{
+				ImGui::CloseCurrentPopup();
+			}
+			if (ImGui::Selectable(GUI_STRING_NORMAL_POWER.c_str()))
+			{
+				ImGui::CloseCurrentPopup();
+			}
+			if (ImGui::Selectable(GUI_STRING_WIRELESS_OFF.c_str()))
+			{
+				ImGui::CloseCurrentPopup();
+			}
+			ImGui::EndPopup();
+		}
+		ImGui::SameLine();
+
+		CenteredTextBox("SD File", textBoxSize, "SDTextbox");
+		
+		
+		//Select all button
+		if (ImGui::Button("Select All"))
+		{
+			std::fill(deviceSelectedNew.begin(), deviceSelectedNew.end(), true);
+		}
+		ImGui::Separator();
+
+		//list devices
+		for (auto it = discoveredDevices.begin(); it != discoveredDevices.end(); it++)
+		{
+			string deviceId = it->first;
+			
+			ImGui::PushID(devicelistIndex);
+			bool referenceVectorAtIndex = deviceSelectedNew.at(devicelistIndex);
+			if (ImGui::Checkbox(deviceId.c_str(), &referenceVectorAtIndex))
+			{
+				//TODO: Update which devices oscilloscope is shown
+			}
+
+			//Display battery level, power mode, recording status 
+			ImGui::SameLine();
+			ImGui::Text("%.0f%%", devicesBatteryLevel.at(devicelistIndex));
+			ImGui::SameLine();
+			ImGui::Text("%s", devicesPowerMode.at(devicelistIndex));
+			ImGui::SameLine();
+			ImGui::Text("%s", deviceSelectedNew.at(devicelistIndex) ? "Recording" : "Idle");
+
+			ImGui::PopID();
+			devicelistIndex++;
+		}
+		devicelistIndex = 0;
+		ImGui::End();	
+	}
+
+	//right panel: controls & oscilloscope
+	if (ImGui::Begin("Recording Control", &open, ImGuiWindowFlags_NoCollapse))
+	{
+		//time slot selection
+		ImGui::Text("Time Slot Selection (mins):");
+		if (ImGui::RadioButton("5", selectedTimeSlot == 5)) { selectedTimeSlot = 5; }
+		ImGui::SameLine();
+		if (ImGui::RadioButton("10", selectedTimeSlot == 10)) { selectedTimeSlot = 10; }
+		ImGui::SameLine();
+		if (ImGui::RadioButton("15", selectedTimeSlot == 15)) { selectedTimeSlot = 15; }
+		ImGui::SameLine();
+		if (ImGui::RadioButton("Custom", selectedTimeSlot == 0)) { selectedTimeSlot = 0; }
+		if (selectedTimeSlot == 0) {
+			ImGui::InputInt("Custom time slot (mins)", &customTimeSlot);
+		}
+		else
+		{
+			ImGui::Text("Selected time slot == %d",selectedTimeSlot);
+		}
+		
+		//Record button
+		if (ImGui::Button("Record")) 
+		{
+			recordButtonPressedNew = true;
+			//TODO: Trigger recording on all devices
+		}
+
+		ImGui::Text("Oscilloscopes:");
+		//TODO: but oscilloscopes here
+
+		ImGui::End();
+	}
+	newGui.end();
+
+}
+
+void ofApp::CenteredTextBox(string text, ImVec2 boxSize, string childWindow)
+{
+	ImGui::BeginChild(childWindow.c_str(), boxSize, true, ImGuiWindowFlags_NoScrollbar);
+	ImVec2 windowBoxSize = ImGui::GetWindowSize();
+	ImVec2 textSize = ImGui::CalcTextSize(text.c_str());
+	ImGui::SetCursorPos(ImVec2((windowBoxSize.x - textSize.x) * 0.5f, (windowBoxSize.y - textSize.y) * 0.5f));
+	ImGui::Text(text.c_str());
+	ImGui::EndChild();
+}
+#pragma endregion

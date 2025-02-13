@@ -11,3 +11,4 @@ ofxOscilloscope
 ofxPoco
 ofxThreadedLogger
 EmotiBit_XPlat_Utils
+ofxImGui

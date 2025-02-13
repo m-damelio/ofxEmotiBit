@@ -20,6 +20,7 @@
 #include "ofxJSON.h"
 #include "SoftwareVersionChecker.h"
 #include "EmotiBitLsl.h"
+#include "ofxImGui.h"
 
 class ofApp : public ofBaseApp {
 public:
@@ -308,6 +309,25 @@ public:
 	
 	EmotiBitLsl emotibitLsl;
 	bool sendLsl = false;
+
+	//added
+	ofxImGui::Gui newGui;
+
+	void DrawNewGui();
+	void CenteredTextBox(string text, ImVec2 boxSize, string childWindow);
+
+	std::vector<bool> deviceSelectedNew;
+	std::vector<PowerMode> devicesPowerMode;
+	std::vector<float> devicesBatteryLevel;
+
+	int selectedTimeSlot;
+	int customTimeSlot;
+
+	bool recordButtonPressedNew = false;
+
+	unordered_map<string, EmotibitInfo> discoveredDevices;
+
+	int devicelistIndex;
 
 };
 
