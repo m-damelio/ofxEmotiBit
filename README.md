@@ -1,3 +1,6 @@
+# This is for a research project and not meant for actual integration into the original repo. Trying to add handling of multiple emotibits in one gui.
+
+
 # ofxEmotiBit
 Software code for the EmotiBit. 
 If you just want to visualize and parse data from the EmotiBit (for Windows/ macOS), you can simply download the software directly in [releases](https://github.com/EmotiBit/ofxEmotiBit/releases).
