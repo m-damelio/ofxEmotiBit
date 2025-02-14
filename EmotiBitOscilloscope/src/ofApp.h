@@ -315,6 +315,7 @@ public:
 
 	void DrawNewGui();
 	void CenteredTextBox(string text, ImVec2 boxSize, string childWindow);
+	void DrawOscilloscopes2();
 
 	std::vector<bool> deviceSelectedNew;
 	std::vector<PowerMode> devicesPowerMode;

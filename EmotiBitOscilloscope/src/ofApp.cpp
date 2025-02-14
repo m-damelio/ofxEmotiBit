@@ -211,7 +211,9 @@ void ofApp::removeDataStream(std::string typetag)
 void ofApp::draw() {
 	//drawOscilloscopes();
 	//drawConsole();
+	newGui.begin();
 	DrawNewGui();
+	newGui.end();
 }
 
 //--------------------------------------------------------------
@@ -1815,11 +1817,31 @@ bool ofApp::startUdpOutput()
 #pragma region NewGuiStuff
 
 void ofApp::setup(){
+	ofLogToConsole();
+#ifdef TARGET_MAC_OS
+	ofSetDataPathRoot("../Resources/");
+	cout << "Changed the data pathroot for macOS." << endl;
+#endif
+	ofSetFrameRate(30);
+	//ofBackground(255, 255, 255);
+	//SoftwareVersionChecker::checkLatestVersion();
+	ofSetLogLevel(OF_LOG_NOTICE);
+	setTypeTagPlotAttributes();
+
+	string commSettings = loadTextFile(commSettingsFile);
+	emotiBitWiFi.parseCommSettings(commSettings);
+
+	emotiBitWiFi.begin();
+	timeWindowOnSetup = 10;
+
 	newGui.setup();
-	discoveredDevices = emotiBitWiFi.getdiscoveredEmotibits();
-	deviceSelectedNew.resize(discoveredDevices.size(), false);
-	devicesBatteryLevel.resize(discoveredDevices.size(), .0f);
-	devicesPowerMode.resize(discoveredDevices.size(), PowerMode::LOW_POWER);
+	setupOscilloscopes();
+
+
+	//discoveredDevices = emotiBitWiFi.getdiscoveredEmotibits();
+	//deviceSelectedNew.resize(discoveredDevices.size(), false);
+	//devicesBatteryLevel.resize(discoveredDevices.size(), .0f);
+	//devicesPowerMode.resize(discoveredDevices.size(), PowerMode::LOW_POWER);
 	selectedTimeSlot = 5;
 	customTimeSlot = 5;
 	devicelistIndex = 0;
@@ -1827,6 +1849,7 @@ void ofApp::setup(){
 
 void ofApp::update()
 {
+	/*
 	if (recordButtonPressedNew)
 	{
 		for(auto it = discoveredDevices.begin(); it != discoveredDevices.end(); it++)
@@ -1836,15 +1859,17 @@ void ofApp::update()
 		}
 		recordButtonPressedNew = false;
 	}
+	*/
+	//emotiBitWiFi.processAdvertisingThread();
+	
 }
 
 void ofApp::DrawNewGui() 
 {
-	newGui.begin();
-	bool open = true;
+	
 	ImVec2 textBoxSize = ImVec2(100, 20);
 	//Left panel: device list
-	if (ImGui::Begin("Devices", &open, ImGuiWindowFlags_NoCollapse)){
+	if (ImGui::Begin("Devices", nullptr, ImGuiWindowFlags_NoCollapse)){
 
 		CenteredTextBox("Device names", textBoxSize, "DeviceNameTextbox");
 		ImGui::SameLine();
@@ -1918,7 +1943,7 @@ void ofApp::DrawNewGui()
 	}
 
 	//right panel: controls & oscilloscope
-	if (ImGui::Begin("Recording Control", &open, ImGuiWindowFlags_NoCollapse))
+	if (ImGui::Begin("Recording Control", nullptr, ImGuiWindowFlags_NoCollapse))
 	{
 		//time slot selection
 		ImGui::Text("Time Slot Selection (mins):");
@@ -1944,13 +1969,75 @@ void ofApp::DrawNewGui()
 			//TODO: Trigger recording on all devices
 		}
 
-		ImGui::Text("Oscilloscopes:");
-		//TODO: but oscilloscopes here
+		//DrawOscilloscopes2();
 
 		ImGui::End();
 	}
-	newGui.end();
+	
 
+}
+
+void ofApp:: DrawOscilloscopes2()
+{
+	ImGui::BeginChild("OscilloscopeCanvas", ImVec2(50, 300), true, ImGuiWindowFlags_NoScrollbar);
+	ImVec2 canvasPos = ImGui::GetCursorScreenPos();
+
+	ofPushMatrix();
+	ofTranslate(canvasPos.x, canvasPos.y + drawYTranslate);
+	ofScale(1, drawYScale);
+
+	for (size_t i = 0; i < scopeWins.size(); i++)
+	{
+		scopeWins[i].plot();
+	}
+	ofPopMatrix();
+	ImGui::EndChild();
+
+	if (ImGui::Begin("Data Info"))
+	{
+		static uint64_t freqCalcTimer = ofGetElapsedTimeMillis();
+		uint32_t elapsedTime = ofGetElapsedTimeMillis() - freqCalcTimer;
+		if (elapsedTime > 2000)
+		{
+			freqCalcTimer = ofGetElapsedTimeMillis();
+			for (size_t w = 0; w < typeTags.size(); w++)
+			{
+				for (size_t s = 0; s < typeTags[w].size(); s++)
+				{
+					for (size_t p = 0; typeTags[w][s].size(); p++)
+					{
+						dataFreqs[w][s][p] = 1000.f * dataCounts[w][s][p] / float(elapsedTime);
+						dataCounts[w][s][p] = 0;
+					}
+				}
+			}
+		}
+
+		for (size_t w = 0; w < typeTags.size(); w++)
+		{
+			for (size_t s = 0; s < typeTags[w].size(); s++)
+			{
+				for (size_t p = 0; typeTags[w][s].size(); p++)
+				{
+					//Color from plotcolors normalized to [0,1]
+					ImVec4 color = ImVec4(
+						plotColors[w][s][p].r / 255.f,
+						plotColors[w][s][p].g / 255.f,
+						plotColors[w][s][p].b / 255.f,
+						1.0f
+					);
+					//Preparing text strings
+					std::string bufferStr = ofToString(bufferSizes[w][s][p] + " (Buffr)");
+					std::string freqStr = ofToString(dataFreqs[w][s][p], 1);
+
+					//Draw texts to gui
+					ImGui::TextColored(color, "%s", bufferStr.c_str());
+					ImGui::TextColored(color, "%s", freqStr.c_str());
+				}
+			}
+		}
+	}
+	ImGui::End();
 }
 
 void ofApp::CenteredTextBox(string text, ImVec2 boxSize, string childWindow)

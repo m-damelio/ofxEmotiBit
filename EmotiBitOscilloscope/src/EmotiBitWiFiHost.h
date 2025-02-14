@@ -23,8 +23,8 @@ using namespace EmotiBit;
 class EmotibitInfo
 {
 public:
-	EmotibitInfo(string ip = "", bool isAvailable = false, uint64_t lastSeen = ofGetElapsedTimeMillis()) :
-		ip(ip), isAvailable(isAvailable), lastSeen(lastSeen), isRecording(false) {}
+	EmotibitInfo(string ip = "", bool isAvailable = false, uint64_t lastSeen = ofGetElapsedTimeMillis(), bool isRecording = false) :
+		ip(ip), isAvailable(isAvailable), lastSeen(lastSeen), isRecording(isRecording) {}
 	string ip;
 	bool isAvailable;
 	uint64_t lastSeen;

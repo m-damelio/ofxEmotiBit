@@ -8,7 +8,7 @@ void ofApp::setup(){
 
 	emotiBitWiFi.begin();
 
-	logger.setFilename("EmotiBitWiFiLog" + ofToString(emotiBitWiFi.dataPort) + ".txt");
+	logger.setFilename("EmotiBitWiFiLog" + ofToString(emotiBitWiFi._dataPort) + ".txt");
 	logger.setDirPath(ofToDataPath(""));
 	logData = false;
 
@@ -21,7 +21,7 @@ void ofApp::setup(){
 //--------------------------------------------------------------
 void ofApp::update()
 {
-	emotiBitWiFi.processAdvertising();
+	emotiBitWiFi.processAdvertisingThread();
 }
 
 //--------------------------------------------------------------
@@ -54,7 +54,7 @@ void ofApp::draw(){
 	ofDrawBitmapString("Connected: " + emotiBitWiFi.connectedEmotibitIp, 10, 60);
 	ofDrawBitmapString("EmotiBits:\n", 10, 100);
 
-	emotibitIps = emotiBitWiFi.getEmotiBitIPs();
+	emotibitIps = emotiBitWiFi.getdiscoveredEmotibits();
 	int y = 100;
 	for (auto it = emotibitIps.begin(); it != emotibitIps.end(); it++)
 	{
@@ -83,7 +83,7 @@ void ofApp::keyReleased(int k){
 	if ((char)key == 'c')
 	{
 		if (emotibitIps.size() > 0) {
-			emotiBitWiFi.connect(emotibitIps.begin()->first);
+			auto test = emotiBitWiFi.connect(emotibitIps.begin()->first);
 			//emotiBitWiFi.connect("192.168.0.36");
 		}
 	}
@@ -100,7 +100,7 @@ void ofApp::keyReleased(int k){
 	else if (key == '1' || key == '2' || key == '3' || key == '4' || key == '5'
 		|| key == '6' || key == '7' || key == '8' || key == '9')
 	{
-		emotiBitWiFi.connect(ofToInt(ofToString(key)) - 1);
+		//emotiBitWiFi.connect(ofToInt(ofToString(key)) - 1);
 	}
 	else if (key == '+')
 	{

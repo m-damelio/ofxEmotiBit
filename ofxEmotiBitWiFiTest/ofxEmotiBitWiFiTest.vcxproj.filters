@@ -16,9 +16,6 @@
     <ClCompile Include="..\..\..\addons\ofxEmotiBit\src\EmotiBitTestingHelper.cpp">
       <Filter>addons\ofxEmotiBit\src</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\addons\ofxEmotiBit\src\EmotiBitWiFiHost.cpp">
-      <Filter>addons\ofxEmotiBit\src</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\..\addons\ofxNetwork\src\ofxNetworkUtils.cpp">
       <Filter>addons\ofxNetwork\src</Filter>
     </ClCompile>
@@ -42,6 +39,15 @@
     </ClCompile>
     <ClCompile Include="..\..\EmotiBit_XPlat_Utils\src\EmotiBitPacket.cpp">
       <Filter>addons\EmotiBit_XPlat_Utils\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\EmotiBitOscilloscope\src\EmotiBitWiFiHost.cpp">
+      <Filter>addons\ofxEmotiBit\EmotiBitOscilloscope\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ofxJSON\libs\jsoncpp\src\jsoncpp.cpp">
+      <Filter>addons\ofxJSON\libs\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ofxJSON\src\ofxJSONElement.cpp">
+      <Filter>addons\ofxJSON\src</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -87,6 +93,30 @@
     <Filter Include="addons\EmotiBit_XPlat_Utils\src">
       <UniqueIdentifier>{4adf502e-ed10-4733-8452-26436ecfe173}</UniqueIdentifier>
     </Filter>
+    <Filter Include="addons\ofxEmotiBit\EmotiBitOscilloscope">
+      <UniqueIdentifier>{48bf6807-e0d7-4d96-b275-dc559017feb2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="addons\ofxEmotiBit\EmotiBitOscilloscope\src">
+      <UniqueIdentifier>{c55076a6-b2f9-4944-b0f2-a0be6dacd00b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="addons\ofxJSON">
+      <UniqueIdentifier>{c29e2956-3f15-4f2c-9108-1097b67d1cec}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="addons\ofxJSON\libs">
+      <UniqueIdentifier>{239990a3-570a-4eed-98c1-f6d247eb7a36}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="addons\ofxJSON\libs\include">
+      <UniqueIdentifier>{f83ee8e7-e079-462b-8338-02d732d56336}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="addons\ofxJSON\libs\include\json">
+      <UniqueIdentifier>{9b674f3c-7136-4d68-9d91-f2bb87f34b70}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="addons\ofxJSON\libs\src">
+      <UniqueIdentifier>{ad91e570-5d32-46e9-9c87-58cac598994d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="addons\ofxJSON\src">
+      <UniqueIdentifier>{7b75b821-39ad-47ee-b289-90ff869a4031}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\ofApp.h">
@@ -105,9 +135,6 @@
       <Filter>addons\ofxEmotiBit\src</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\addons\ofxEmotiBit\src\EmotiBitTestingHelper.h">
-      <Filter>addons\ofxEmotiBit\src</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\addons\ofxEmotiBit\src\EmotiBitWiFiHost.h">
       <Filter>addons\ofxEmotiBit\src</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\addons\ofxEmotiBit\src\ofxEmotiBitVersion.h">
@@ -148,6 +175,21 @@
     </ClInclude>
     <ClInclude Include="..\..\EmotiBit_XPlat_Utils\src\EmotiBitPacket.h">
       <Filter>addons\EmotiBit_XPlat_Utils\src</Filter>
+    </ClInclude>
+    <ClInclude Include="..\EmotiBitOscilloscope\src\EmotiBitWiFiHost.h">
+      <Filter>addons\ofxEmotiBit\EmotiBitOscilloscope\src</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ofxJSON\libs\jsoncpp\include\json\json.h">
+      <Filter>addons\ofxJSON\libs\include\json</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ofxJSON\libs\jsoncpp\include\json\json-forwards.h">
+      <Filter>addons\ofxJSON\libs\include\json</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ofxJSON\src\ofxJSON.h">
+      <Filter>addons\ofxJSON\src</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ofxJSON\src\ofxJSONElement.h">
+      <Filter>addons\ofxJSON\src</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
