@@ -232,10 +232,10 @@ public:
 	const string GUI_STRING_EMPTY_USER_NOTE = "[Add a note]";
 	//const string GUI_POWER_STATUS_MENU_NAME = "RECORD";
 	const string GUI_POWER_MODE_GROUP_NAME = "Power Mode";
-	const string GUI_STRING_NORMAL_POWER =	 "Normal         (data streaming)";
-	const string GUI_STRING_LOW_POWER =		 "Low Power      (no streaming)";
-	const string GUI_STRING_WIRELESS_OFF = "Wireless Off";
-	const string GUI_STRING_HIBERNATE = "Sleep";
+	const char* GUI_STRING_NORMAL_POWER =	 "Normal         (data streaming)";
+	const char* GUI_STRING_LOW_POWER =		 "Low Power      (no streaming)";
+	const char* GUI_STRING_WIRELESS_OFF = "Wireless Off";
+	const char* GUI_STRING_HIBERNATE = "Sleep";
 
 	ofColor recordControlColor = ofColor(255, 69, 78);
 	ofColor hibernateControlColor = ofColor(10, 135, 210);
@@ -316,19 +316,40 @@ public:
 	void DrawNewGui();
 	void CenteredTextBox(string text, ImVec2 boxSize, string childWindow);
 	void DrawOscilloscopes2();
-
-	std::vector<bool> deviceSelectedNew;
-	std::vector<PowerMode> devicesPowerMode;
-	std::vector<float> devicesBatteryLevel;
+	void processSlowResponseMessage2(string packet);
+	void processSlowResponseMessage2(vector<string> splitPacket);
+	void updateDeviceList2();
+	bool UniqueIdUsed(string idToCheck);
+	const char* StringifyPowerMode(PowerMode modeToStringify);
 
 	int selectedTimeSlot;
 	int customTimeSlot;
+	int testCount;
 
 	bool recordButtonPressedNew = false;
 
+	unordered_set<string> uniqueIds;
+
+	bool showOsc;
+
+	class AdvancedEmotibitInfo : public EmotibitInfo{
+		
+	public:
+		//BAse-Constructor
+		AdvancedEmotibitInfo(string ip = "", bool isAvailable = false, uint64_t lastSeen = ofGetElapsedTimeMillis(), bool isRecording = false, PowerMode currentPowerMode = PowerMode::LOW_POWER, float currentBatteryStatus = 0, bool isSelected = false)
+			:EmotibitInfo(ip, isAvailable, lastSeen), isRecording(isRecording), currentPowerMode(currentPowerMode), currentBatteryStatus(currentBatteryStatus), isSelected(isSelected) { }
+		//Constructor from given EmotibitInfo
+		AdvancedEmotibitInfo(const EmotibitInfo& emotibitInfo, bool isRecording = false, PowerMode currentPowerMode = PowerMode::LOW_POWER, float currentBatteryStatus = 0, bool isSelected = false)
+			:EmotibitInfo(emotibitInfo.ip, emotibitInfo.isAvailable, emotibitInfo.lastSeen), isRecording(isRecording), currentPowerMode(currentPowerMode), currentBatteryStatus(currentBatteryStatus), isSelected(isSelected) {}
+		bool isRecording;
+		PowerMode currentPowerMode;
+		float currentBatteryStatus;
+		bool isSelected;
+	};
 	unordered_map<string, EmotibitInfo> discoveredDevices;
+	unordered_map<string, AdvancedEmotibitInfo> discoveredDevicesInfo;
 
-	int devicelistIndex;
-
+	const char* GUI_STRING_MAX_LOW_POWER = "Max low power";
+	const char* GUI_STRING_UNKNOWN_MODE = "Unknown mode";
 };
 

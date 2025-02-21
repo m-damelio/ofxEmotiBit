@@ -1834,17 +1834,28 @@ void ofApp::setup(){
 	emotiBitWiFi.begin();
 	timeWindowOnSetup = 10;
 
+	logData = true;
+	logConsole = true;
+	dataLogger.setFilename("dataLog.txt");
+	if (logData)
+	{
+		dataLogger.startThread();
+	}
+	consoleLogger.setFilename("consoleLog.txt");
+	if (logConsole)
+	{
+		consoleLogger.startThread();
+	}
+
 	newGui.setup();
-	setupOscilloscopes();
+	//setupOscilloscopes();
 
-
-	//discoveredDevices = emotiBitWiFi.getdiscoveredEmotibits();
-	//deviceSelectedNew.resize(discoveredDevices.size(), false);
-	//devicesBatteryLevel.resize(discoveredDevices.size(), .0f);
-	//devicesPowerMode.resize(discoveredDevices.size(), PowerMode::LOW_POWER);
 	selectedTimeSlot = 5;
 	customTimeSlot = 5;
-	devicelistIndex = 0;
+	testCount = 0;
+
+	// set log level to FATAL_ERROR to remove unrelated LSL error overflow in the console
+	ofSetLogLevel(OF_LOG_FATAL_ERROR);
 }
 
 void ofApp::update()
@@ -1861,12 +1872,24 @@ void ofApp::update()
 	}
 	*/
 	//emotiBitWiFi.processAdvertisingThread();
-	
+	vector<string> dataPackets;
+	emotiBitWiFi.readData(dataPackets);
+	/*
+	for (auto packet : dataPackets)
+	{
+		processSlowResponseMessage2(packet);
+		if (logData)
+		{
+			dataLogger.push(packet + '\n');
+		}
+	}
+	*/
+	updateDeviceList2();
 }
 
 void ofApp::DrawNewGui() 
 {
-	
+
 	ImVec2 textBoxSize = ImVec2(100, 20);
 	//Left panel: device list
 	if (ImGui::Begin("Devices", nullptr, ImGuiWindowFlags_NoCollapse)){
@@ -1884,20 +1907,19 @@ void ofApp::DrawNewGui()
 		if (ImGui::BeginPopup("PowerModeDropDown"))
 		{
 			//TODO: Set selected power mode to selected emotibits
-			if (ImGui::Selectable(GUI_STRING_HIBERNATE.c_str()))
-			{
-				 
-				ImGui::CloseCurrentPopup();
-			}
-			if (ImGui::Selectable(GUI_STRING_LOW_POWER.c_str()))
+			if (ImGui::Selectable(GUI_STRING_HIBERNATE))
 			{
 				ImGui::CloseCurrentPopup();
 			}
-			if (ImGui::Selectable(GUI_STRING_NORMAL_POWER.c_str()))
+			if (ImGui::Selectable(GUI_STRING_LOW_POWER))
 			{
 				ImGui::CloseCurrentPopup();
 			}
-			if (ImGui::Selectable(GUI_STRING_WIRELESS_OFF.c_str()))
+			if (ImGui::Selectable(GUI_STRING_NORMAL_POWER))
+			{
+				ImGui::CloseCurrentPopup();
+			}
+			if (ImGui::Selectable(GUI_STRING_WIRELESS_OFF))
 			{
 				ImGui::CloseCurrentPopup();
 			}
@@ -1911,34 +1933,45 @@ void ofApp::DrawNewGui()
 		//Select all button
 		if (ImGui::Button("Select All"))
 		{
-			std::fill(deviceSelectedNew.begin(), deviceSelectedNew.end(), true);
+			for (auto& device : discoveredDevicesInfo)
+			{
+				device.second.isSelected = true;
+			}
 		}
 		ImGui::Separator();
 
 		//list devices
-		for (auto it = discoveredDevices.begin(); it != discoveredDevices.end(); it++)
-		{
-			string deviceId = it->first;
-			
-			ImGui::PushID(devicelistIndex);
-			bool referenceVectorAtIndex = deviceSelectedNew.at(devicelistIndex);
-			if (ImGui::Checkbox(deviceId.c_str(), &referenceVectorAtIndex))
-			{
-				//TODO: Update which devices oscilloscope is shown
-			}
+		ImGui::BeginChild("Device List");
+		ImGui::Text("Devices should be here, called updateDeviceList function %d times", testCount);
+		ImGui::Text("Discovered devices: %d, should be the same as %d", discoveredDevices.size(), discoveredDevicesInfo.size());
 
+		for (auto it = discoveredDevicesInfo.begin(); it != discoveredDevicesInfo.end(); it++)
+		{
+			
+			string deviceId = it->first;
+			AdvancedEmotibitInfo advancedDeviceInfo = it->second;
+			
+			ImGui::PushID(deviceId.c_str());
+			
+			uniqueIds.insert(deviceId);
+			
+			if (ImGui::Checkbox(deviceId.c_str(), &advancedDeviceInfo.isSelected))
+			{
+				//advancedDeviceInfo.isSelected = true;
+			}
 			//Display battery level, power mode, recording status 
 			ImGui::SameLine();
-			ImGui::Text("%.0f%%", devicesBatteryLevel.at(devicelistIndex));
+			ImGui::Text("%.0f%%", advancedDeviceInfo.currentBatteryStatus);
+			
 			ImGui::SameLine();
-			ImGui::Text("%s", devicesPowerMode.at(devicelistIndex));
+			ImGui::Text("%s", StringifyPowerMode(advancedDeviceInfo.currentPowerMode));
+			
 			ImGui::SameLine();
-			ImGui::Text("%s", deviceSelectedNew.at(devicelistIndex) ? "Recording" : "Idle");
-
+			ImGui::Text("%s", advancedDeviceInfo.isRecording ? "Recording" : "Idle");
+			
 			ImGui::PopID();
-			devicelistIndex++;
 		}
-		devicelistIndex = 0;
+		ImGui::EndChild();
 		ImGui::End();	
 	}
 
@@ -1968,7 +2001,7 @@ void ofApp::DrawNewGui()
 			recordButtonPressedNew = true;
 			//TODO: Trigger recording on all devices
 		}
-
+		//ImGui::SameLine();
 		//DrawOscilloscopes2();
 
 		ImGui::End();
@@ -1979,20 +2012,20 @@ void ofApp::DrawNewGui()
 
 void ofApp:: DrawOscilloscopes2()
 {
-	ImGui::BeginChild("OscilloscopeCanvas", ImVec2(50, 300), true, ImGuiWindowFlags_NoScrollbar);
-	ImVec2 canvasPos = ImGui::GetCursorScreenPos();
 
-	ofPushMatrix();
-	ofTranslate(canvasPos.x, canvasPos.y + drawYTranslate);
-	ofScale(1, drawYScale);
-
-	for (size_t i = 0; i < scopeWins.size(); i++)
+	if (ImGui::Button(showOsc ? "Hide Oscilloscope" : "Show Oscilloscope"))
 	{
-		scopeWins[i].plot();
+		showOsc = !showOsc;
+		
 	}
-	ofPopMatrix();
-	ImGui::EndChild();
-
+	if (showOsc)
+	{
+		for (size_t i = 0; i < scopeWins.size(); i++)
+		{
+			scopeWins[i].plot();
+		}
+	}
+	/*
 	if (ImGui::Begin("Data Info"))
 	{
 		static uint64_t freqCalcTimer = ofGetElapsedTimeMillis();
@@ -2038,6 +2071,345 @@ void ofApp:: DrawOscilloscopes2()
 		}
 	}
 	ImGui::End();
+	*/
+}
+
+void ofApp::updateDeviceList2()
+{
+	// Update add any missing EmotiBits on network to the device list
+	// ToDo: consider subtraction of EmotiBits that are stale
+	discoveredDevices = emotiBitWiFi.getdiscoveredEmotibits();
+	
+	for (auto it = discoveredDevices.begin(); it != discoveredDevices.end(); it++)
+	{
+		string deviceId = it->first;
+		EmotibitInfo _emotiBitInfo = it->second;
+
+		bool found2 = false;
+		AdvancedEmotibitInfo advancedInfo;
+		auto itt = discoveredDevicesInfo.find(deviceId);
+		if (itt != discoveredDevicesInfo.end())
+		{
+			testCount = 1;
+		}
+		else
+		{
+			advancedInfo = AdvancedEmotibitInfo(_emotiBitInfo, false, PowerMode::LOW_POWER, 0, false);
+			discoveredDevicesInfo[deviceId] = advancedInfo;
+			testCount = 2;
+		}
+	}
+
+	
+
+	
+
+
+
+
+
+	/*
+	for (auto it = discoveredEmotibits.begin(); it != discoveredEmotibits.end(); it++)
+	{
+		string deviceId = it->first;
+		bool available = it->second.isAvailable;
+		bool found = false;
+		// Search the GUI list to see if we're missing any EmotiBits
+		for (auto device = deviceList.begin(); device != deviceList.end(); device++)
+		{
+			if (deviceId.compare(device->getName()) == 0)
+			{
+				found = true;
+				break;
+			}
+		}
+		if (!found)
+		{
+			deviceList.emplace_back(deviceId, false);	// Add a new device (unchecked)
+			//deviceList.at(deviceList.size() - 1).addListener(this, &ofApp::deviceSelection);	// Attach a listener
+			guiPanels.at(guiPanelDevice).getGroup(GUI_DEVICE_GROUP_NAME).add(deviceList.at(deviceList.size() - 1));
+			if (discoveredEmotibits.size() == 1 && deviceList.size() == 1)  // This is the first device in the list
+			{
+				// There is one device on the network and it's the first device in the list
+				// connect
+				deviceList.at(deviceList.size() - 1).set(true);
+			}
+		}
+	}
+
+	// Update selected device
+	if (emotiBitWiFi.isConnected())
+	{
+		// ToDo: Think about how to make the displayed text scalable to cover other info. about selected EmotiBit
+		deviceSelected.setup(GUI_STRING_EMOTIBIT_SELECTED, emotiBitWiFi.connectedEmotibitIdentifier);
+	}
+	else
+	{
+		deviceSelected.setup(GUI_STRING_EMOTIBIT_SELECTED, GUI_STRING_NO_EMOTIBIT_SELECTED);
+	}
+
+	// Update deviceList to reflect availability and connection status
+	for (auto device = deviceList.begin(); device != deviceList.end(); device++)
+	{
+		// Update availability color
+		string deviceId = device->getName();
+		bool available = false;
+		try { available = discoveredEmotibits.at(deviceId).isAvailable; }
+		catch (const std::out_of_range& oor) { oor; } // ignore exception
+		ofColor textColor;
+		if (available || deviceId.compare(emotiBitWiFi.connectedEmotibitIdentifier) == 0)
+		{
+			textColor = deviceAvailableColor;
+		}
+		else
+		{
+			textColor = notAvailableColor;
+		}
+		guiPanels.at(guiPanelDevice).getGroup(GUI_DEVICE_GROUP_NAME).getControl(deviceId)->setTextColor(textColor);
+
+		// Update device connection status checkbox
+		bool selected = device->get();
+		if (deviceId.compare(emotiBitWiFi.connectedEmotibitIdentifier) == 0 && !selected)
+		{
+			// Connected to device -- checkbox needs to be checked
+			ofRemoveListener(deviceGroup.parameterChangedE(), this, &ofApp::deviceGroupSelection);
+			device->set(true);
+			ofAddListener(deviceGroup.parameterChangedE(), this, &ofApp::deviceGroupSelection);
+			if (sendLsl)
+			{
+				// Changing devices may require LSL stream setup
+				string sourceId = emotiBitWiFi.connectedEmotibitIdentifier;
+				if (!emotibitLsl.isDataStreamOutputSource(sourceId))
+				{
+					// A new sourceId needs to be added to LSL sender
+					if (lslSettings.empty())
+					{
+						cout << "Loading LSL settings from: " << lslOutputSettingsFile << endl;
+						emotibitLsl.clearDataStreamOutputs(); // clear the existing stream outputs when loading settings to avoid weird conflicts
+						lslSettings = loadTextFile(lslOutputSettingsFile);
+					}
+					string sourceId = emotiBitWiFi.connectedEmotibitIdentifier;
+					if (lslSettings.empty())
+					{
+						cout << "LSL settings not found: " << lslOutputSettingsFile << endl;
+						// ToDo: consider a graceful way to unmark LSL in output list
+						//sendDataList.at(j).set(false);
+						//sendLsl = false;
+					}
+					else if (sourceId.empty())
+					{
+						cout << "Select an EmotiBit to setup LSL streaming" << endl;
+					}
+					else if (!emotibitLsl.addDataStreamOutputs(lslSettings, sourceId) == EmotiBitLsl::ReturnCode::SUCCESS)
+					{
+						cout << "LSL output setup failed: " << emotibitLsl.getlastErrMsg() << endl;
+						// ToDo: consider a graceful way to unmark LSL in output list
+						//sendDataList.at(j).set(false);
+						//sendLsl = false;
+					}
+					else
+					{
+						cout << "Added LSL stream source: " << sourceId << endl;
+						cout << "Starting LSL streaming from: " << sourceId << endl;
+					}
+				}
+				else cout << "Starting LSL streaming from: " << sourceId << endl;
+			}
+		}
+		else if (deviceId.compare(emotiBitWiFi.connectedEmotibitIdentifier) != 0 && selected)
+		{
+			// Not connected to device -- checkbox needs to be unchecked
+			ofRemoveListener(deviceGroup.parameterChangedE(), this, &ofApp::deviceGroupSelection);
+			device->set(false);
+			ofAddListener(deviceGroup.parameterChangedE(), this, &ofApp::deviceGroupSelection);
+			clearOscilloscopes(true);
+		}
+	}
+	*/
+
+}
+
+void ofApp::processSlowResponseMessage2(string packet) {
+	if (sendUdp) // Handle sending data to outputs
+	{
+		udpSender.Send(packet.c_str(), packet.length());
+	}
+	vector<string> splitPacket = ofSplitString(packet, ",");	// split data into separate value pairs
+	processSlowResponseMessage2(splitPacket);
+}
+
+void ofApp::processSlowResponseMessage2(vector<string> splitPacket)
+{
+
+	EmotiBitPacket::Header packetHeader;
+	if (EmotiBitPacket::getHeader(splitPacket, packetHeader))
+	{
+		if (packetHeader.dataLength >= MAX_BUFFER_LENGTH)
+		{
+			bufferUnderruns++;
+			cout << "**** POSSIBLE BUFFER UNDERRUN EVENT " << bufferUnderruns << ", " << packetHeader.dataLength << " ****" << endl;
+		}
+		// ToDo: the second comparison is redundant with the called func. Added it here to skip a function call. Might want to change the order later.
+		if (packetHeader.typeTag.compare(EmotiBitPacket::TypeTag::THERMOPILE) == 0 && typeTagIndexes.find(EmotiBitPacket::TypeTag::THERMOPILE) == typeTagIndexes.end())
+		{
+			// Add stream to plot if data detected.
+			addDataStream(EmotiBitPacket::TypeTag::THERMOPILE);
+		}
+		if (packetHeader.typeTag.compare(EmotiBitPacket::TypeTag::TEMPERATURE_1) == 0 && typeTagIndexes.find(EmotiBitPacket::TypeTag::TEMPERATURE_1) == typeTagIndexes.end())
+		{
+			// Add stream to plot if data detected.
+			addDataStream(EmotiBitPacket::TypeTag::TEMPERATURE_1);
+		}
+		auto indexPtr = typeTagIndexes.find(packetHeader.typeTag);	// Check whether we're plotting this typeTage
+		if (indexPtr != typeTagIndexes.end())
+		{	// We're plotting this packet's typeTag!
+			vector<vector<float>> data;
+			int w = indexPtr->second.at(0); // Scope window
+			int s = indexPtr->second.at(1); // Scope
+			int p = indexPtr->second.at(2); // Plot
+			data.resize(typeTags.at(w).at(s).size());
+
+			vector<string> oscAddresses;
+			vector<ofxOscMessage> oscMessages;
+			if (sendOsc) // Handle sending data to outputs
+			{
+				// ToDo: Refactor to handle data outputs in one place
+				// ToDo: Make it possible to send data types that aren't being plotted (e.g. EL, ER)
+				oscAddresses = oscPatchboard.patchcords[packetHeader.typeTag];
+				oscMessages.resize(oscAddresses.size());
+				for (int a = 0; a < oscAddresses.size(); a++)
+				{
+					oscMessages.at(a).setAddress(oscAddresses.at(a));
+				}
+			}
+
+			for (int n = EmotiBitPacket::headerLength; n < splitPacket.size(); n++)
+			{
+				data.at(p).emplace_back(ofToFloat(splitPacket.at(n)));
+
+				if (sendLsl)
+				{
+					vector<float> lslSample(1); // data is passed into addSample as a vector of 1 datapoint/channel
+					lslSample.at(0) = data.at(p).back();
+					emotibitLsl.addSample(lslSample, packetHeader.typeTag, emotiBitWiFi.connectedEmotibitIdentifier);
+					//cout << packetHeader.typeTag << ":" << ofToString(data.at(p)) << ", ";
+				}
+				// Data for plotting in the oscilloscope
+
+				if (sendOsc) // Handle sending data to outputs
+				{
+					for (int a = 0; a < oscMessages.size(); a++)
+					{
+						oscMessages.at(a).addFloatArg(data.at(p).back());
+					}
+				}
+			}
+
+			if (sendOsc)
+			{
+				for (int a = 0; a < oscMessages.size(); a++)
+				{
+					// ToDo: Consider using ofxOscBundle
+					oscSender.sendMessage(oscMessages.at(a));
+				}
+			}
+
+			if (!isPaused) {
+				processAperiodicData(packetHeader.typeTag, data.at(p));
+				// check if typetag is aperiodic
+				bool isAperiodic = false;
+				for (uint8_t i = 0; i < EmotiBitPacket::TypeTagGroups::NUM_APERIODIC; i++)
+				{
+					if (packetHeader.typeTag.compare(EmotiBitPacket::TypeTagGroups::APERIODIC[i]) == 0)
+					{
+						// found
+						isAperiodic = true;
+						break;
+					}
+				}
+				if (!isAperiodic)
+				{
+					// Add data to oscilloscope
+					scopeWins.at(w).scopes.at(s).updateData(data);
+				}
+			}
+			bufferSizes.at(w).at(s).at(p) = packetHeader.dataLength;
+			dataCounts.at(w).at(s).at(p) += packetHeader.dataLength;
+
+			// Sliding EDA minYspan 
+			if (!DEBUGGING && packetHeader.typeTag.compare(EmotiBitPacket::TypeTag::EDA) == 0 && data.at(p).size() > 0)
+			{
+				minYSpans.at(w).at(s) = 0.1f * pow(data.at(p).at(0), 1.5f);
+				if (yLims.at(w).at(s).at(0) == yLims.at(w).at(s).at(1)) {
+					scopeWins.at(w).scopes.at(s).autoscaleY(true, minYSpans.at(w).at(s));
+				}
+			}
+		}
+		else
+		{
+			if (packetHeader.typeTag.compare(EmotiBitPacket::TypeTag::BATTERY_VOLTAGE) == 0)
+			{
+				deviceSelected.setup(GUI_STRING_EMOTIBIT_SELECTED, GUI_STRING_NO_EMOTIBIT_SELECTED);
+				batteryStatus.setup(GUI_STRING_BATTERY_LEVEL, splitPacket.at(6) + "V");
+			}
+			else if (packetHeader.typeTag.compare(EmotiBitPacket::TypeTag::BATTERY_PERCENT) == 0)
+			{
+				batteryStatus.setup(GUI_STRING_BATTERY_LEVEL, splitPacket.at(6) + "%");
+			}
+			else if (packetHeader.typeTag.compare(EmotiBitPacket::TypeTag::EMOTIBIT_MODE) == 0)
+			{
+				processModePacket(splitPacket);
+			}
+			else if (packetHeader.typeTag.compare(EmotiBitPacket::TypeTag::DATA_CLIPPING) == 0)
+			{
+				for (int n = EmotiBitPacket::headerLength; n < splitPacket.size(); n++) {
+					for (int w = 0; w < typeTags.size(); w++) {
+						for (int s = 0; s < typeTags.at(w).size(); s++) {
+							for (int p = 0; p < typeTags.at(w).at(s).size(); p++) {
+								if (splitPacket.at(n).compare(typeTags.at(w).at(s).at(p)) == 0) {
+									dataClippingCount++;
+									guiPanels.at(guiPanelErrors).getControl(GUI_STRING_CLIPPING_EVENTS)->setBackgroundColor(ofColor(255, 0, 0));
+								}
+							}
+						}
+					}
+				}
+			}
+			else if (packetHeader.typeTag.compare(EmotiBitPacket::TypeTag::DATA_OVERFLOW) == 0)
+			{
+				for (int n = EmotiBitPacket::headerLength; n < splitPacket.size(); n++) {
+					for (int w = 0; w < typeTags.size(); w++) {
+						for (int s = 0; s < typeTags.at(w).size(); s++) {
+							for (int p = 0; p < typeTags.at(w).at(s).size(); p++) {
+								if (splitPacket.at(n).compare(typeTags.at(w).at(s).at(p)) == 0) {
+									dataOverflowCount++;
+									guiPanels.at(guiPanelErrors).getControl(GUI_STRING_OVERFLOW_EVENTS)->setBackgroundColor(ofColor(255, 0, 0));
+								}
+							}
+						}
+					}
+				}
+			}
+			else if (packetHeader.typeTag.compare(EmotiBitPacket::TypeTag::RESET) == 0)
+			{
+				//if (guiPanels.at(guiPanelMode).getControl(GUI_STRING_CONTROL_HIBERNATE) != NULL) {
+				//	hibernateButton.set(GUI_STRING_CONTROL_HIBERNATE, false);
+				//	guiPanels.at(guiPanelMode).getControl(GUI_STRING_CONTROL_HIBERNATE)->setBackgroundColor(ofColor(0, 0, 0));
+				//	hibernateStatus.setBackgroundColor(ofColor(0, 0, 0));
+				//	hibernateStatus.getParameter().fromString(GUI_STRING_MODE_ACTIVE);
+				//}
+				if (guiPanels.at(guiPanelRecord).getControl(GUI_STRING_CONTROL_RECORD) != NULL) {
+					recordingButton.removeListener(this, &ofApp::recordButtonPressed);
+					recordingButton.set(false);
+					recordingButton.addListener(this, &ofApp::recordButtonPressed);
+					recordingButton.set(GUI_STRING_CONTROL_RECORD, false);
+					guiPanels.at(guiPanelRecord).getControl(GUI_STRING_CONTROL_RECORD)->setBackgroundColor(ofColor(0, 0, 0));
+					recordingStatus.setBackgroundColor(ofColor(0, 0, 0));
+					recordingStatus.getParameter().fromString(GUI_STRING_NOT_RECORDING);
+				}
+			}
+		}
+	}
 }
 
 void ofApp::CenteredTextBox(string text, ImVec2 boxSize, string childWindow)
@@ -2048,5 +2420,33 @@ void ofApp::CenteredTextBox(string text, ImVec2 boxSize, string childWindow)
 	ImGui::SetCursorPos(ImVec2((windowBoxSize.x - textSize.x) * 0.5f, (windowBoxSize.y - textSize.y) * 0.5f));
 	ImGui::Text(text.c_str());
 	ImGui::EndChild();
+}
+
+bool ofApp::UniqueIdUsed(string idToCheck)
+{
+	return (uniqueIds.find(idToCheck) != uniqueIds.end());
+}
+const char* ofApp::StringifyPowerMode(PowerMode modeToStringify)
+{
+	switch (modeToStringify) {
+		case PowerMode::HIBERNATE:
+			return GUI_STRING_HIBERNATE;
+			break;
+		case PowerMode::WIRELESS_OFF:
+			return GUI_STRING_WIRELESS_OFF;
+			break;
+		case PowerMode::MAX_LOW_POWER:
+			return GUI_STRING_MAX_LOW_POWER;
+			break;
+		case PowerMode::LOW_POWER:
+			return GUI_STRING_LOW_POWER;
+			break;
+		case PowerMode::NORMAL_POWER:
+			return GUI_STRING_NORMAL_POWER;
+			break;
+		default:
+			return GUI_STRING_UNKNOWN_MODE;
+			break;
+	}
 }
 #pragma endregion

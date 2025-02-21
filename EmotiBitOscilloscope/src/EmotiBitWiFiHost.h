@@ -23,12 +23,11 @@ using namespace EmotiBit;
 class EmotibitInfo
 {
 public:
-	EmotibitInfo(string ip = "", bool isAvailable = false, uint64_t lastSeen = ofGetElapsedTimeMillis(), bool isRecording = false) :
-		ip(ip), isAvailable(isAvailable), lastSeen(lastSeen), isRecording(isRecording) {}
+	EmotibitInfo(string ip = "", bool isAvailable = false, uint64_t lastSeen = ofGetElapsedTimeMillis()) :
+		ip(ip), isAvailable(isAvailable), lastSeen(lastSeen) {}
 	string ip;
 	bool isAvailable;
 	uint64_t lastSeen;
-	bool isRecording;
 	// Additional parameters like Name, Fs etc can be stored in this struct
 	// ToDo: Consider if a copy/assignment constructor is needed
 };
