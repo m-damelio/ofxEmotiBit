@@ -12,7 +12,7 @@
   </ItemGroup>
   <PropertyGroup Condition="'$(WindowsTargetPlatformVersion)'==''">
     <LatestTargetPlatformVersion>$([Microsoft.Build.Utilities.ToolLocationHelper]::GetLatestSDKTargetPlatformVersion('Windows', '10.0'))</LatestTargetPlatformVersion>
-    <WindowsTargetPlatformVersion Condition="'$(WindowsTargetPlatformVersion)' == ''">$(LatestTargetPlatformVersion)</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion Condition="'$(WindowsTargetPlatformVersion)' == ''">10.0</WindowsTargetPlatformVersion>
     <TargetPlatformVersion>$(WindowsTargetPlatformVersion)</TargetPlatformVersion>
   </PropertyGroup>
   <PropertyGroup Label="Globals">
@@ -24,13 +24,13 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <CharacterSet>Unicode</CharacterSet>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v143</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <CharacterSet>Unicode</CharacterSet>
     <WholeProgramOptimization>true</WholeProgramOptimization>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v143</PlatformToolset>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="PropertySheets">
@@ -61,7 +61,7 @@
       <PreprocessorDefinitions>%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
       <WarningLevel>Level3</WarningLevel>
-      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories);src;..\..\..\addons\ofxBiquadFilter\src;..\..\..\addons\ofxEmotiBit\src;..\..\..\addons\ofxEmotiBit\src\Signal;..\..\..\addons\ofxGui\src;..\..\..\addons\ofxLSL\libs;..\..\..\addons\ofxLSL\libs\labstreaminglayer;..\..\..\addons\ofxLSL\libs\labstreaminglayer\include;..\..\..\addons\ofxLSL\libs\labstreaminglayer\lib;..\..\..\addons\ofxLSL\libs\labstreaminglayer\lib\win64;..\..\..\addons\ofxLSL\src;..\..\..\addons\ofxNetwork\src;..\..\..\addons\ofxPoco\libs\poco\include;..\..\..\addons\ofxPoco\src;..\..\..\addons\ofxNetworkUtils\libs;..\..\..\addons\ofxNetworkUtils\libs\ofxNetworkUtils;..\..\..\addons\ofxNetworkUtils\libs\ofxNetworkUtils\include;..\..\..\addons\ofxNetworkUtils\libs\ofxNetworkUtils\include\ofx;..\..\..\addons\ofxNetworkUtils\libs\ofxNetworkUtils\include\ofx\Net;..\..\..\addons\ofxNetworkUtils\libs\ofxNetworkUtils\src;..\..\..\addons\ofxNetworkUtils\src;..\..\..\addons\ofxOsc\libs;..\..\..\addons\ofxOsc\libs\oscpack;..\..\..\addons\ofxOsc\libs\oscpack\src;..\..\..\addons\ofxOsc\libs\oscpack\src\ip;..\..\..\addons\ofxOsc\libs\oscpack\src\ip\posix;..\..\..\addons\ofxOsc\libs\oscpack\src\ip\win32;..\..\..\addons\ofxOsc\libs\oscpack\src\osc;..\..\..\addons\ofxOsc\src;..\..\..\addons\ofxOscilloscope\ofxPatchboard\Patchboard\src;..\..\..\addons\ofxOscilloscope\src;..\..\..\addons\ofxThreadedLogger\src;..\..\..\addons\ofxXmlSettings\libs;..\..\..\addons\ofxXmlSettings\src;..\..\..\addons\EmotiBit_XPlat_Utils\src;..\..\..\addons\ofxJSON\libs;..\..\..\addons\ofxJSON\libs\jsoncpp;..\..\..\addons\ofxJSON\libs\jsoncpp\include;..\..\..\addons\ofxJSON\libs\jsoncpp\include\json;..\..\..\addons\ofxJSON\libs\jsoncpp\src;..\..\..\addons\ofxJSON\src</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories);src;..\..\..\addons\ofxBiquadFilter\src;..\..\..\addons\ofxEmotiBit\src;..\..\..\addons\ofxEmotiBit\src\Signal;..\..\..\addons\ofxGui\src;..\..\..\addons\ofxLSL\libs;..\..\..\addons\ofxLSL\libs\labstreaminglayer;..\..\..\addons\ofxLSL\libs\labstreaminglayer\include;..\..\..\addons\ofxLSL\libs\labstreaminglayer\lib;..\..\..\addons\ofxLSL\libs\labstreaminglayer\lib\win64;..\..\..\addons\ofxLSL\src;..\..\..\addons\ofxNetwork\src;..\..\..\addons\ofxPoco\libs\poco\include;..\..\..\addons\ofxPoco\src;..\..\..\addons\ofxNetworkUtils\libs;..\..\..\addons\ofxNetworkUtils\libs\ofxNetworkUtils;..\..\..\addons\ofxNetworkUtils\libs\ofxNetworkUtils\include;..\..\..\addons\ofxNetworkUtils\libs\ofxNetworkUtils\include\ofx;..\..\..\addons\ofxNetworkUtils\libs\ofxNetworkUtils\include\ofx\Net;..\..\..\addons\ofxNetworkUtils\libs\ofxNetworkUtils\src;..\..\..\addons\ofxNetworkUtils\src;..\..\..\addons\ofxOsc\libs;..\..\..\addons\ofxOsc\libs\oscpack;..\..\..\addons\ofxOsc\libs\oscpack\src;..\..\..\addons\ofxOsc\libs\oscpack\src\ip;..\..\..\addons\ofxOsc\libs\oscpack\src\ip\posix;..\..\..\addons\ofxOsc\libs\oscpack\src\ip\win32;..\..\..\addons\ofxOsc\libs\oscpack\src\osc;..\..\..\addons\ofxOsc\src;..\..\..\addons\ofxOscilloscope\ofxPatchboard\Patchboard\src;..\..\..\addons\ofxOscilloscope\src;..\..\..\addons\ofxThreadedLogger\src;..\..\..\addons\ofxXmlSettings\libs;..\..\..\addons\ofxXmlSettings\src;..\..\..\addons\EmotiBit_XPlat_Utils\src;..\..\..\addons\ofxJSON\libs;..\..\..\addons\ofxJSON\libs\jsoncpp;..\..\..\addons\ofxJSON\libs\jsoncpp\include;..\..\..\addons\ofxJSON\libs\jsoncpp\include\json;..\..\..\addons\ofxJSON\libs\jsoncpp\src;..\..\..\addons\ofxJSON\src;..\..\..\addons\ofxImGui\libs\imgui\src;..\..\..\addons\ofxImGui\src</AdditionalIncludeDirectories>
       <CompileAs>CompileAsCpp</CompileAs>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <ObjectFileName>$(IntDir)</ObjectFileName>
@@ -101,6 +101,18 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\addons\EmotiBit_XPlat_Utils\src\EmotiBitPacket.cpp" />
+    <ClCompile Include="..\..\ofxImGui\libs\imgui\src\imgui.cpp" />
+    <ClCompile Include="..\..\ofxImGui\libs\imgui\src\imgui_demo.cpp" />
+    <ClCompile Include="..\..\ofxImGui\libs\imgui\src\imgui_draw.cpp" />
+    <ClCompile Include="..\..\ofxImGui\libs\imgui\src\imgui_widgets.cpp" />
+    <ClCompile Include="..\..\ofxImGui\src\BaseEngine.cpp" />
+    <ClCompile Include="..\..\ofxImGui\src\DefaultTheme.cpp" />
+    <ClCompile Include="..\..\ofxImGui\src\EngineGLFW.cpp" />
+    <ClCompile Include="..\..\ofxImGui\src\EngineOpenGLES.cpp" />
+    <ClCompile Include="..\..\ofxImGui\src\EngineVk.cpp" />
+    <ClCompile Include="..\..\ofxImGui\src\Gui.cpp" />
+    <ClCompile Include="..\..\ofxImGui\src\ImHelpers.cpp" />
+    <ClCompile Include="..\..\ofxImGui\src\ofxImGuiLoggerChannel.cpp" />
     <ClCompile Include="..\..\ofxJSON\libs\jsoncpp\src\jsoncpp.cpp" />
     <ClCompile Include="..\..\ofxJSON\src\ofxJSONElement.cpp" />
     <ClCompile Include="..\..\ofxLSL\src\ofxLSLReceiver.cpp" />
@@ -159,6 +171,22 @@
   <ItemGroup>
     <ClInclude Include="..\..\..\addons\EmotiBit_XPlat_Utils\src\EmotiBitComms.h" />
     <ClInclude Include="..\..\..\addons\EmotiBit_XPlat_Utils\src\EmotiBitPacket.h" />
+    <ClInclude Include="..\..\ofxImGui\libs\imgui\src\imgui.h" />
+    <ClInclude Include="..\..\ofxImGui\libs\imgui\src\imgui_internal.h" />
+    <ClInclude Include="..\..\ofxImGui\libs\imgui\src\imstb_rectpack.h" />
+    <ClInclude Include="..\..\ofxImGui\libs\imgui\src\imstb_textedit.h" />
+    <ClInclude Include="..\..\ofxImGui\libs\imgui\src\imstb_truetype.h" />
+    <ClInclude Include="..\..\ofxImGui\src\BaseEngine.h" />
+    <ClInclude Include="..\..\ofxImGui\src\BaseTheme.h" />
+    <ClInclude Include="..\..\ofxImGui\src\DefaultTheme.h" />
+    <ClInclude Include="..\..\ofxImGui\src\EngineGLFW.h" />
+    <ClInclude Include="..\..\ofxImGui\src\EngineOpenGLES.h" />
+    <ClInclude Include="..\..\ofxImGui\src\EngineVk.h" />
+    <ClInclude Include="..\..\ofxImGui\src\Gui.h" />
+    <ClInclude Include="..\..\ofxImGui\src\imconfig.h" />
+    <ClInclude Include="..\..\ofxImGui\src\ImHelpers.h" />
+    <ClInclude Include="..\..\ofxImGui\src\ofxImGui.h" />
+    <ClInclude Include="..\..\ofxImGui\src\ofxImGuiLoggerChannel.h" />
     <ClInclude Include="..\..\ofxJSON\libs\jsoncpp\include\json\json-forwards.h" />
     <ClInclude Include="..\..\ofxJSON\libs\jsoncpp\include\json\json.h" />
     <ClInclude Include="..\..\ofxJSON\src\ofxJSON.h" />

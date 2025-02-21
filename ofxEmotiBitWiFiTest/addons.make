@@ -1,4 +1,5 @@
 ofxBiquadFilter
+ofxJSON
 ofxEmotiBit
 ofxNetwork
 ofxPoco

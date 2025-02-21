@@ -26,7 +26,7 @@ class ofApp : public ofBaseApp{
 		void gotMessage(ofMessage msg);	
 		
 		EmotiBitWiFiHost emotiBitWiFi;
-		unordered_map<string, EmotiBitStatus> emotibitIps;
+		unordered_map<string, EmotibitInfo> emotibitIps;
 
 		LoggerThread logger;
 		bool logData;

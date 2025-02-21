@@ -3,8 +3,11 @@
 #include <algorithm>
 #include "EmotiBitOfUtils.h"
 
+#pragma region EmotiBitStuff
 
-//--------------------------------------------------------------
+
+
+/*
 void ofApp::setup() {
 	ofLogToConsole();
 #ifdef TARGET_MAC_OS
@@ -77,7 +80,7 @@ void ofApp::update() {
 
 	updateMenuButtons();
 }
-
+*/
 
 
 // ToDo: This function  should be removed once we complete our move to xmlFileSettings
@@ -203,11 +206,14 @@ void ofApp::removeDataStream(std::string typetag)
 		}
 	}
 }
-
+#pragma endregion
 //--------------------------------------------------------------
 void ofApp::draw() {
-	drawOscilloscopes();
-	drawConsole();
+	//drawOscilloscopes();
+	//drawConsole();
+	newGui.begin();
+	DrawNewGui();
+	newGui.end();
 }
 
 //--------------------------------------------------------------
@@ -469,6 +475,9 @@ void ofApp::gotMessage(ofMessage msg) {
 void ofApp::dragEvent(ofDragInfo dragInfo) {
 
 }
+#pragma region EmotiBitStuff
+
+
 
 void ofApp::recordButtonPressed(bool & recording) {
 	if (recording) {
@@ -1804,3 +1813,240 @@ bool ofApp::startUdpOutput()
 
 	return false;
 }
+#pragma endregion
+#pragma region NewGuiStuff
+
+void ofApp::setup(){
+	ofLogToConsole();
+#ifdef TARGET_MAC_OS
+	ofSetDataPathRoot("../Resources/");
+	cout << "Changed the data pathroot for macOS." << endl;
+#endif
+	ofSetFrameRate(30);
+	//ofBackground(255, 255, 255);
+	//SoftwareVersionChecker::checkLatestVersion();
+	ofSetLogLevel(OF_LOG_NOTICE);
+	setTypeTagPlotAttributes();
+
+	string commSettings = loadTextFile(commSettingsFile);
+	emotiBitWiFi.parseCommSettings(commSettings);
+
+	emotiBitWiFi.begin();
+	timeWindowOnSetup = 10;
+
+	newGui.setup();
+	setupOscilloscopes();
+
+
+	//discoveredDevices = emotiBitWiFi.getdiscoveredEmotibits();
+	//deviceSelectedNew.resize(discoveredDevices.size(), false);
+	//devicesBatteryLevel.resize(discoveredDevices.size(), .0f);
+	//devicesPowerMode.resize(discoveredDevices.size(), PowerMode::LOW_POWER);
+	selectedTimeSlot = 5;
+	customTimeSlot = 5;
+	devicelistIndex = 0;
+}
+
+void ofApp::update()
+{
+	/*
+	if (recordButtonPressedNew)
+	{
+		for(auto it = discoveredDevices.begin(); it != discoveredDevices.end(); it++)
+		{
+			string deviceId = it->first;
+			it->second.isRecording = true;
+		}
+		recordButtonPressedNew = false;
+	}
+	*/
+	//emotiBitWiFi.processAdvertisingThread();
+	
+}
+
+void ofApp::DrawNewGui() 
+{
+	
+	ImVec2 textBoxSize = ImVec2(100, 20);
+	//Left panel: device list
+	if (ImGui::Begin("Devices", nullptr, ImGuiWindowFlags_NoCollapse)){
+
+		CenteredTextBox("Device names", textBoxSize, "DeviceNameTextbox");
+		ImGui::SameLine();
+
+		CenteredTextBox("Battery", textBoxSize, "BatteryTextbox");
+		ImGui::SameLine();
+
+		if (ImGui::Button("PowerMode", textBoxSize))
+		{
+			ImGui::OpenPopup("PowerModeDropDown");
+		}
+		if (ImGui::BeginPopup("PowerModeDropDown"))
+		{
+			//TODO: Set selected power mode to selected emotibits
+			if (ImGui::Selectable(GUI_STRING_HIBERNATE.c_str()))
+			{
+				 
+				ImGui::CloseCurrentPopup();
+			}
+			if (ImGui::Selectable(GUI_STRING_LOW_POWER.c_str()))
+			{
+				ImGui::CloseCurrentPopup();
+			}
+			if (ImGui::Selectable(GUI_STRING_NORMAL_POWER.c_str()))
+			{
+				ImGui::CloseCurrentPopup();
+			}
+			if (ImGui::Selectable(GUI_STRING_WIRELESS_OFF.c_str()))
+			{
+				ImGui::CloseCurrentPopup();
+			}
+			ImGui::EndPopup();
+		}
+		ImGui::SameLine();
+
+		CenteredTextBox("SD File", textBoxSize, "SDTextbox");
+		
+		
+		//Select all button
+		if (ImGui::Button("Select All"))
+		{
+			std::fill(deviceSelectedNew.begin(), deviceSelectedNew.end(), true);
+		}
+		ImGui::Separator();
+
+		//list devices
+		for (auto it = discoveredDevices.begin(); it != discoveredDevices.end(); it++)
+		{
+			string deviceId = it->first;
+			
+			ImGui::PushID(devicelistIndex);
+			bool referenceVectorAtIndex = deviceSelectedNew.at(devicelistIndex);
+			if (ImGui::Checkbox(deviceId.c_str(), &referenceVectorAtIndex))
+			{
+				//TODO: Update which devices oscilloscope is shown
+			}
+
+			//Display battery level, power mode, recording status 
+			ImGui::SameLine();
+			ImGui::Text("%.0f%%", devicesBatteryLevel.at(devicelistIndex));
+			ImGui::SameLine();
+			ImGui::Text("%s", devicesPowerMode.at(devicelistIndex));
+			ImGui::SameLine();
+			ImGui::Text("%s", deviceSelectedNew.at(devicelistIndex) ? "Recording" : "Idle");
+
+			ImGui::PopID();
+			devicelistIndex++;
+		}
+		devicelistIndex = 0;
+		ImGui::End();	
+	}
+
+	//right panel: controls & oscilloscope
+	if (ImGui::Begin("Recording Control", nullptr, ImGuiWindowFlags_NoCollapse))
+	{
+		//time slot selection
+		ImGui::Text("Time Slot Selection (mins):");
+		if (ImGui::RadioButton("5", selectedTimeSlot == 5)) { selectedTimeSlot = 5; }
+		ImGui::SameLine();
+		if (ImGui::RadioButton("10", selectedTimeSlot == 10)) { selectedTimeSlot = 10; }
+		ImGui::SameLine();
+		if (ImGui::RadioButton("15", selectedTimeSlot == 15)) { selectedTimeSlot = 15; }
+		ImGui::SameLine();
+		if (ImGui::RadioButton("Custom", selectedTimeSlot == 0)) { selectedTimeSlot = 0; }
+		if (selectedTimeSlot == 0) {
+			ImGui::InputInt("Custom time slot (mins)", &customTimeSlot);
+		}
+		else
+		{
+			ImGui::Text("Selected time slot == %d",selectedTimeSlot);
+		}
+		
+		//Record button
+		if (ImGui::Button("Record")) 
+		{
+			recordButtonPressedNew = true;
+			//TODO: Trigger recording on all devices
+		}
+
+		//DrawOscilloscopes2();
+
+		ImGui::End();
+	}
+	
+
+}
+
+void ofApp:: DrawOscilloscopes2()
+{
+	ImGui::BeginChild("OscilloscopeCanvas", ImVec2(50, 300), true, ImGuiWindowFlags_NoScrollbar);
+	ImVec2 canvasPos = ImGui::GetCursorScreenPos();
+
+	ofPushMatrix();
+	ofTranslate(canvasPos.x, canvasPos.y + drawYTranslate);
+	ofScale(1, drawYScale);
+
+	for (size_t i = 0; i < scopeWins.size(); i++)
+	{
+		scopeWins[i].plot();
+	}
+	ofPopMatrix();
+	ImGui::EndChild();
+
+	if (ImGui::Begin("Data Info"))
+	{
+		static uint64_t freqCalcTimer = ofGetElapsedTimeMillis();
+		uint32_t elapsedTime = ofGetElapsedTimeMillis() - freqCalcTimer;
+		if (elapsedTime > 2000)
+		{
+			freqCalcTimer = ofGetElapsedTimeMillis();
+			for (size_t w = 0; w < typeTags.size(); w++)
+			{
+				for (size_t s = 0; s < typeTags[w].size(); s++)
+				{
+					for (size_t p = 0; typeTags[w][s].size(); p++)
+					{
+						dataFreqs[w][s][p] = 1000.f * dataCounts[w][s][p] / float(elapsedTime);
+						dataCounts[w][s][p] = 0;
+					}
+				}
+			}
+		}
+
+		for (size_t w = 0; w < typeTags.size(); w++)
+		{
+			for (size_t s = 0; s < typeTags[w].size(); s++)
+			{
+				for (size_t p = 0; typeTags[w][s].size(); p++)
+				{
+					//Color from plotcolors normalized to [0,1]
+					ImVec4 color = ImVec4(
+						plotColors[w][s][p].r / 255.f,
+						plotColors[w][s][p].g / 255.f,
+						plotColors[w][s][p].b / 255.f,
+						1.0f
+					);
+					//Preparing text strings
+					std::string bufferStr = ofToString(bufferSizes[w][s][p] + " (Buffr)");
+					std::string freqStr = ofToString(dataFreqs[w][s][p], 1);
+
+					//Draw texts to gui
+					ImGui::TextColored(color, "%s", bufferStr.c_str());
+					ImGui::TextColored(color, "%s", freqStr.c_str());
+				}
+			}
+		}
+	}
+	ImGui::End();
+}
+
+void ofApp::CenteredTextBox(string text, ImVec2 boxSize, string childWindow)
+{
+	ImGui::BeginChild(childWindow.c_str(), boxSize, true, ImGuiWindowFlags_NoScrollbar);
+	ImVec2 windowBoxSize = ImGui::GetWindowSize();
+	ImVec2 textSize = ImGui::CalcTextSize(text.c_str());
+	ImGui::SetCursorPos(ImVec2((windowBoxSize.x - textSize.x) * 0.5f, (windowBoxSize.y - textSize.y) * 0.5f));
+	ImGui::Text(text.c_str());
+	ImGui::EndChild();
+}
+#pragma endregion
