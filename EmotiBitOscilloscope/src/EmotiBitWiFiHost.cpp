@@ -1107,3 +1107,112 @@ void EmotiBitWiFiHost::parseCommSettings(string jsonStr)
 		ofLog(OF_LOG_ERROR, "ERROR: Failed to load: \n" + jsonStr);
 	}
 }
+
+#pragma region NewStuff
+int8_t EmotiBitWiFiHost::connect2(string deviceId)
+{
+	discoveredEmotibitsMutex.lock();
+	string ip = _discoveredEmotibits[deviceId].ip;
+	bool isAvailable = _discoveredEmotibits[deviceId].isAvailable;
+	discoveredEmotibitsMutex.unlock();
+
+	try {
+		if (ip.compare("") != 0 && isAvailable) //If ip is in list and available
+		{
+			//If a data connection for his device doesn't exist, create one
+			if (deviceDataConnections.find(deviceId) == deviceDataConnections.end())
+			{
+				uint16_t newDataPort = _dataPort + (deviceDataConnections.size() * 2);
+				DeviceDataConnection newConn;
+				newConn.dataPort = newDataPort;
+				newConn.receivedDataPacketNumber = 60000; //arbitrary start
+
+				//Create and bind a new UDP socket for this device
+				newConn.dataCxn.Create();
+				while (!newConn.dataCxn.Bind(newDataPort))
+				{
+					newDataPort += 2;
+					ofLogNotice() << "Trying data port: " << newDataPort;
+				}
+				newConn.dataCxn.SetNonBlocking(true);
+				newConn.dataCxn.SetReceiveBufferSize(pow(2, 10));
+
+				deviceDataConnections[deviceId] = newConn;
+				ofLogNotice() << "Created data connection for device " << deviceId << " on port " << newDataPort;
+
+				//Send a connection message to the device that includes the new data port
+				vector<string> payload;
+				payload.push_back(EmotiBitPacket::PayloadLabel::CONTROL_PORT);
+				payload.push_back(ofToString(controlPort));
+				payload.push_back(EmotiBitPacket::PayloadLabel::DATA_PORT);
+				payload.push_back(ofToString(newDataPort));
+				string packet = EmotiBitPacket::createPacket(EmotiBitPacket::TypeTag::EMOTIBIT_CONNECT, advertisingPacketCounter++, payload);
+				advertisingCxn.Connect(ip.c_str(), advertisingPort);
+				advertisingCxn.SetEnableBroadcast(false);
+				advertisingCxn.Send(packet.c_str(), packet.length());
+			}
+		}
+	}
+	catch (const std::out_of_range& oor)
+	{
+		ofLogWarning() << "EmotiBit "<< deviceId << " not found.";
+		return FAIL;
+	}
+	return SUCCESS;
+}
+void EmotiBitWiFiHost::updateData2()
+{
+	for (auto& it : deviceDataConnections)
+	{
+		string deviceId = it.first;
+		DeviceDataConnection& conn = it.second;
+		string message;
+
+		dataCxnMutex.lock();
+		readUdp(conn.dataCxn, message, "");
+		dataCxnMutex.unlock();
+
+		if (message.size() > 0)
+		{
+			string packet;
+			EmotiBitPacket::Header header;
+			size_t startChar = 0;
+			size_t endChar;
+
+			do
+			{
+				endChar = message.find_first_of(EmotiBitPacket::PACKET_DELIMITER_CSV, startChar);
+				if (endChar == string::npos)
+				{
+					ofLogWarning() << "**** MALFORMED MESSAGE **** : no packet delimiter found";
+				}
+				else
+				{
+					if (endChar == startChar)
+					{
+						ofLogWarning() << "**** EMPTY MESSAGE ****";
+					}
+					else
+					{
+						packet = message.substr(startChar, endChar - startChar);
+						int16_t dataStartChar = EmotiBitPacket::getHeader(packet, header);
+						if (dataStartChar == EmotiBitPacket::MALFORMED_HEADER)
+						{
+							ofLogWarning() << "**** MALFORMED PACKET **** : no header data found";
+						}
+						else
+						{
+							if (header.typeTag.compare(EmotiBitPacket::TypeTag::REQUEST_DATA) == 0)
+							{
+								processRequestData(packet, dataStartChar);
+							}
+							ofLogNotice() << "Device " << deviceId << " received packet: " << packet;
+						}
+					}
+				}
+				startChar = endChar + 1;
+			} while (endChar != string::npos && startChar < message.size());	
+		}
+	}
+}
+#pragma endregion 

@@ -232,8 +232,8 @@ public:
 	const string GUI_STRING_EMPTY_USER_NOTE = "[Add a note]";
 	//const string GUI_POWER_STATUS_MENU_NAME = "RECORD";
 	const string GUI_POWER_MODE_GROUP_NAME = "Power Mode";
-	const char* GUI_STRING_NORMAL_POWER =	 "Normal         (data streaming)";
-	const char* GUI_STRING_LOW_POWER =		 "Low Power      (no streaming)";
+	const char* GUI_STRING_NORMAL_POWER = "Normal power"; //         (data streaming)";
+	const char* GUI_STRING_LOW_POWER = "Low Power";//      (no streaming)";
 	const char* GUI_STRING_WIRELESS_OFF = "Wireless Off";
 	const char* GUI_STRING_HIBERNATE = "Sleep";
 
@@ -314,13 +314,14 @@ public:
 	ofxImGui::Gui newGui;
 
 	void DrawNewGui();
-	void CenteredTextBox(string text, ImVec2 boxSize, string childWindow);
+	void CenteredText(const std::string& text, float columWidth);
 	void DrawOscilloscopes2();
 	void processSlowResponseMessage2(string packet);
 	void processSlowResponseMessage2(vector<string> splitPacket);
 	void updateDeviceList2();
 	bool UniqueIdUsed(string idToCheck);
 	const char* StringifyPowerMode(PowerMode modeToStringify);
+	void ShowDataForDevice(string deviceId, bool& showPlot);
 
 	int selectedTimeSlot;
 	int customTimeSlot;
@@ -336,20 +337,31 @@ public:
 		
 	public:
 		//BAse-Constructor
-		AdvancedEmotibitInfo(string ip = "", bool isAvailable = false, uint64_t lastSeen = ofGetElapsedTimeMillis(), bool isRecording = false, PowerMode currentPowerMode = PowerMode::LOW_POWER, float currentBatteryStatus = 0, bool isSelected = false)
-			:EmotibitInfo(ip, isAvailable, lastSeen), isRecording(isRecording), currentPowerMode(currentPowerMode), currentBatteryStatus(currentBatteryStatus), isSelected(isSelected) { }
+		AdvancedEmotibitInfo(string ip = "", bool isAvailable = false, uint64_t lastSeen = ofGetElapsedTimeMillis(), bool isRecording = false, PowerMode currentPowerMode = PowerMode::LOW_POWER, string currentBatteryStatus = "0", bool isSelected = false, int clippingCount = 0, int overflowCount = 0, bool showPlotCurrently = false)
+			:EmotibitInfo(ip, isAvailable, lastSeen), isRecording(isRecording), currentPowerMode(currentPowerMode), currentBatteryStatus(currentBatteryStatus), isSelected(isSelected), clippingCount(clippingCount), overflowCount(overflowCount), showPlotCurrently(showPlotCurrently) { }
 		//Constructor from given EmotibitInfo
-		AdvancedEmotibitInfo(const EmotibitInfo& emotibitInfo, bool isRecording = false, PowerMode currentPowerMode = PowerMode::LOW_POWER, float currentBatteryStatus = 0, bool isSelected = false)
-			:EmotibitInfo(emotibitInfo.ip, emotibitInfo.isAvailable, emotibitInfo.lastSeen), isRecording(isRecording), currentPowerMode(currentPowerMode), currentBatteryStatus(currentBatteryStatus), isSelected(isSelected) {}
+		AdvancedEmotibitInfo(const EmotibitInfo& emotibitInfo, bool isRecording = false, PowerMode currentPowerMode = PowerMode::LOW_POWER, string currentBatteryStatus = "?%", bool isSelected = false, int clippingCount = 0, int overflowCount = 0, bool showPlotCurrently = false)
+			:EmotibitInfo(emotibitInfo.ip, emotibitInfo.isAvailable, emotibitInfo.lastSeen), isRecording(isRecording), currentPowerMode(currentPowerMode), currentBatteryStatus(currentBatteryStatus), isSelected(isSelected),clippingCount(clippingCount), overflowCount(overflowCount), showPlotCurrently(showPlotCurrently) {}
 		bool isRecording;
 		PowerMode currentPowerMode;
-		float currentBatteryStatus;
+		string currentBatteryStatus;
 		bool isSelected;
+		int clippingCount;
+		int overflowCount;
+		bool showPlotCurrently;
 	};
 	unordered_map<string, EmotibitInfo> discoveredDevices;
 	unordered_map<string, AdvancedEmotibitInfo> discoveredDevicesInfo;
+	unordered_map<string, vector<ofxMultiScope>> devicePlots;
 
 	const char* GUI_STRING_MAX_LOW_POWER = "Max low power";
 	const char* GUI_STRING_UNKNOWN_MODE = "Unknown mode";
+
+	std::string emotiBitDeviceToVisualize;
+
+	const float columnWidth = 150.0f;
+	ImVec2 textBoxSize = ImVec2(100, 20);
+
+	 
 };
 

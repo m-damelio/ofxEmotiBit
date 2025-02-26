@@ -179,6 +179,19 @@ public:
 	@param sleepMicros <0 does nothing, ==0 yeilds, >0 sleep_for
 	*/
 	void threadSleepFor(int sleepMicros);
+
+#pragma region Newstuff
+	struct DeviceDataConnection {
+		uint16_t dataPort;
+		ofxUDPManager dataCxn;
+		uint16_t receivedDataPacketNumber = 60000;
+
+	};
+	unordered_map<string, DeviceDataConnection> deviceDataConnections;
+	int8_t connect2(string deviceId);
+	void updateData2();
+#pragma endregion
+
 };
 
 

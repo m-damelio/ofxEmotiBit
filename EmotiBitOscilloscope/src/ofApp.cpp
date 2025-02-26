@@ -1848,7 +1848,7 @@ void ofApp::setup(){
 	}
 
 	newGui.setup();
-	//setupOscilloscopes();
+	setupOscilloscopes();
 
 	selectedTimeSlot = 5;
 	customTimeSlot = 5;
@@ -1872,9 +1872,10 @@ void ofApp::update()
 	}
 	*/
 	//emotiBitWiFi.processAdvertisingThread();
+	
 	vector<string> dataPackets;
 	emotiBitWiFi.readData(dataPackets);
-	/*
+	
 	for (auto packet : dataPackets)
 	{
 		processSlowResponseMessage2(packet);
@@ -1883,27 +1884,50 @@ void ofApp::update()
 			dataLogger.push(packet + '\n');
 		}
 	}
-	*/
+	
 	updateDeviceList2();
 }
 
 void ofApp::DrawNewGui() 
 {
-
-	ImVec2 textBoxSize = ImVec2(100, 20);
 	//Left panel: device list
 	if (ImGui::Begin("Devices", nullptr, ImGuiWindowFlags_NoCollapse)){
 
-		CenteredTextBox("Device names", textBoxSize, "DeviceNameTextbox");
-		ImGui::SameLine();
-
-		CenteredTextBox("Battery", textBoxSize, "BatteryTextbox");
-		ImGui::SameLine();
-
-		if (ImGui::Button("PowerMode", textBoxSize))
+		ImGui::BeginChild("Header", ImVec2(columnWidth * 7, 30), true, ImGuiWindowFlags_NoScrollbar);
 		{
-			ImGui::OpenPopup("PowerModeDropDown");
+			ImGui::SetCursorPosX(0);
+			CenteredText("Device names", columnWidth);
+			ImGui::SameLine();
+
+			ImGui::SetCursorPosX(columnWidth);
+			CenteredText("Battery", columnWidth);
+			ImGui::SameLine();
+
+			ImGui::SetCursorPosX(columnWidth*2);
+			if (ImGui::Button("PowerMode", ImVec2(columnWidth, 0)))
+			{
+				ImGui::OpenPopup("PowerModeDropDown");
+			}
+			ImGui::SameLine();
+
+			ImGui::SetCursorPosX(columnWidth*3);
+			CenteredText("Clipping count", columnWidth);
+			ImGui::SameLine();
+
+			ImGui::SetCursorPosX(columnWidth * 4);
+			CenteredText("Overflow count", columnWidth);
+			ImGui::SameLine();
+
+			ImGui::SetCursorPosX(columnWidth * 5);
+			CenteredText("SD File", columnWidth);
+			ImGui::SameLine();
+
+			ImGui::SetCursorPosX(columnWidth * 6);
+			CenteredText("Show/Hide Plots", columnWidth);
+			
+			
 		}
+		
 		if (ImGui::BeginPopup("PowerModeDropDown"))
 		{
 			//TODO: Set selected power mode to selected emotibits
@@ -1925,10 +1949,16 @@ void ofApp::DrawNewGui()
 			}
 			ImGui::EndPopup();
 		}
+		ImGui::EndChild();
+		/*
+		CenteredTextBox("Device names", textBoxSize, "DeviceNameTextbox");
+		ImGui::SameLine();
+
+		CenteredTextBox("Battery", textBoxSize, "BatteryTextbox");
 		ImGui::SameLine();
 
 		CenteredTextBox("SD File", textBoxSize, "SDTextbox");
-		
+		*/
 		
 		//Select all button
 		if (ImGui::Button("Select All"))
@@ -1941,8 +1971,7 @@ void ofApp::DrawNewGui()
 		ImGui::Separator();
 
 		//list devices
-		ImGui::BeginChild("Device List");
-		ImGui::Text("Devices should be here, called updateDeviceList function %d times", testCount);
+		ImGui::BeginChild("Device List", ImVec2(columnWidth * 7, 0), false);
 		ImGui::Text("Discovered devices: %d, should be the same as %d", discoveredDevices.size(), discoveredDevicesInfo.size());
 
 		for (auto it = discoveredDevicesInfo.begin(); it != discoveredDevicesInfo.end(); it++)
@@ -1952,23 +1981,45 @@ void ofApp::DrawNewGui()
 			AdvancedEmotibitInfo advancedDeviceInfo = it->second;
 			
 			ImGui::PushID(deviceId.c_str());
-			
 			uniqueIds.insert(deviceId);
-			
-			if (ImGui::Checkbox(deviceId.c_str(), &advancedDeviceInfo.isSelected))
+
+			ImGui::SetCursorPosX(0);
+			if (ImGui::Checkbox(deviceId.c_str(), &it->second.isSelected))
 			{
-				//advancedDeviceInfo.isSelected = true;
+				advancedDeviceInfo.isSelected = !advancedDeviceInfo.isSelected;
 			}
-			//Display battery level, power mode, recording status 
 			ImGui::SameLine();
-			ImGui::Text("%.0f%%", advancedDeviceInfo.currentBatteryStatus);
-			
+
+			ImGui::SetCursorPosX(columnWidth);
+			CenteredText(("%s", advancedDeviceInfo.currentBatteryStatus).c_str(), columnWidth);
 			ImGui::SameLine();
-			ImGui::Text("%s", StringifyPowerMode(advancedDeviceInfo.currentPowerMode));
-			
+
+			ImGui::SetCursorPosX(columnWidth * 2);
+			CenteredText(("%s", StringifyPowerMode(advancedDeviceInfo.currentPowerMode)), columnWidth);
 			ImGui::SameLine();
-			ImGui::Text("%s", advancedDeviceInfo.isRecording ? "Recording" : "Idle");
-			
+
+			ImGui::SetCursorPosX(columnWidth * 3);
+			std::stringstream stc;
+			stc << advancedDeviceInfo.clippingCount;
+			CenteredText(stc.str(), columnWidth);
+			ImGui::SameLine();
+
+			ImGui::SetCursorPosX(columnWidth * 4);
+			std::stringstream sto;
+			sto << advancedDeviceInfo.overflowCount;
+			CenteredText(sto.str(), columnWidth);
+			ImGui::SameLine();
+
+			ImGui::SetCursorPosX(columnWidth * 5);
+			CenteredText(("%s", advancedDeviceInfo.isRecording ? "Recording" : "Idle"), columnWidth);
+			ImGui::SameLine();
+
+			ImGui::SetCursorPosX(columnWidth * 6);
+			if (ImGui::Checkbox("Show data", &it->second.showPlotCurrently))
+			{
+				
+			}
+			ShowDataForDevice(deviceId, it->second.showPlotCurrently);
 			ImGui::PopID();
 		}
 		ImGui::EndChild();
@@ -2001,9 +2052,12 @@ void ofApp::DrawNewGui()
 			recordButtonPressedNew = true;
 			//TODO: Trigger recording on all devices
 		}
-		//ImGui::SameLine();
-		//DrawOscilloscopes2();
+		ImGui::End();
+	}
 
+	if (ImGui::Begin("Data Visualization Control", nullptr, ImGuiWindowFlags_NoCollapse))
+	{
+		//DrawOscilloscopes2();
 		ImGui::End();
 	}
 	
@@ -2012,19 +2066,59 @@ void ofApp::DrawNewGui()
 
 void ofApp:: DrawOscilloscopes2()
 {
-
 	if (ImGui::Button(showOsc ? "Hide Oscilloscope" : "Show Oscilloscope"))
 	{
 		showOsc = !showOsc;
 		
 	}
+	ImGui::SameLine();
 	if (showOsc)
 	{
+		
 		for (size_t i = 0; i < scopeWins.size(); i++)
 		{
 			scopeWins[i].plot();
 		}
+
+		if (ImGui::BeginCombo("##DeviceDropDown", emotiBitDeviceToVisualize.empty() ? "Select device for visualization" : emotiBitDeviceToVisualize.c_str()))
+		{
+			for (auto it = discoveredDevicesInfo.begin(); it != discoveredDevicesInfo.end(); it++)
+			{
+				string deviceId = it->first;
+				bool isSelected = (emotiBitDeviceToVisualize == deviceId);
+
+				if (ImGui::Selectable(deviceId.c_str(), isSelected))
+				{
+					emotiBitDeviceToVisualize = deviceId;
+				}
+				if (isSelected) {
+					ImGui::SetItemDefaultFocus();
+				}
+			}
+			ImGui::EndCombo();
+		}
+
+		//Check if selected emotibit to visualize was changed and update connection status accordingly
+		if (emotiBitDeviceToVisualize != emotiBitWiFi.connectedEmotibitIdentifier && emotiBitWiFi.connectedEmotibitIdentifier.empty())
+		{
+			emotiBitWiFi.connect(emotiBitDeviceToVisualize);
+			testCount = 1;
+		} 
+		else if (emotiBitDeviceToVisualize != emotiBitWiFi.connectedEmotibitIdentifier)
+		{
+			emotiBitWiFi.disconnect();
+			clearOscilloscopes(true);
+			emotiBitWiFi.connect(emotiBitDeviceToVisualize);
+			testCount = 2;
+		}
+		else
+		{
+			testCount = 3;
+		}
+		ImGui::Text("I landed in case %d", testCount);
 	}
+	
+	
 	/*
 	if (ImGui::Begin("Data Info"))
 	{
@@ -2074,12 +2168,29 @@ void ofApp:: DrawOscilloscopes2()
 	*/
 }
 
+void ofApp::ShowDataForDevice(string deviceId, bool& showPlot)
+{
+	auto it = devicePlots.find(deviceId);
+	if (it == devicePlots.end())
+		return;
+	vector<ofxMultiScope>& devicePlot = it->second;
+
+	if (showPlot)
+	{
+		for (size_t i = 0; i < devicePlot.size(); i++)
+		{
+			devicePlot[i].plot();
+		}
+	}
+	
+}
+
 void ofApp::updateDeviceList2()
 {
 	// Update add any missing EmotiBits on network to the device list
 	// ToDo: consider subtraction of EmotiBits that are stale
 	discoveredDevices = emotiBitWiFi.getdiscoveredEmotibits();
-	
+	//Iterate over discovered emotibits
 	for (auto it = discoveredDevices.begin(); it != discoveredDevices.end(); it++)
 	{
 		string deviceId = it->first;
@@ -2087,27 +2198,36 @@ void ofApp::updateDeviceList2()
 
 		bool found2 = false;
 		AdvancedEmotibitInfo advancedInfo;
+		//See if discovered emotibit is already in the map for visualization of data
 		auto itt = discoveredDevicesInfo.find(deviceId);
 		if (itt != discoveredDevicesInfo.end())
 		{
-			testCount = 1;
+			found2 = true;
 		}
 		else
 		{
-			advancedInfo = AdvancedEmotibitInfo(_emotiBitInfo, false, PowerMode::LOW_POWER, 0, false);
+			//Add new device to list of devices to be visualized. 
+			advancedInfo = AdvancedEmotibitInfo(_emotiBitInfo);
 			discoveredDevicesInfo[deviceId] = advancedInfo;
-			testCount = 2;
+		}
+
+		//Create new Multiscope for each device if not existent yet
+		auto ittt = devicePlots.find(deviceId);
+		if (ittt == devicePlots.end())
+		{
+			devicePlots[deviceId] = scopeWins;
 		}
 	}
-
-	
-
-	
-
-
-
-
-
+	//Removal of stale emotibits from discoveredDevicesInfo 
+	for (auto it = discoveredDevicesInfo.begin(); it != discoveredDevicesInfo.end(); it++)
+	{
+		string deviceId = it->first;
+		auto itt = discoveredDevices.find(deviceId);
+		if (itt == discoveredDevices.end())
+		{
+			discoveredDevicesInfo.erase(deviceId);
+		}
+	}
 	/*
 	for (auto it = discoveredEmotibits.begin(); it != discoveredEmotibits.end(); it++)
 	{
@@ -2226,7 +2346,6 @@ void ofApp::updateDeviceList2()
 		}
 	}
 	*/
-
 }
 
 void ofApp::processSlowResponseMessage2(string packet) {
@@ -2240,6 +2359,13 @@ void ofApp::processSlowResponseMessage2(string packet) {
 
 void ofApp::processSlowResponseMessage2(vector<string> splitPacket)
 {
+	//Check if EmotiBit to process data for is also in the list of possible devices
+	auto it = discoveredDevicesInfo.find(emotiBitDeviceToVisualize);
+	if (it == discoveredDevicesInfo.end())
+	{
+		return;
+	}
+	AdvancedEmotibitInfo& deviceInfos = it->second;
 
 	EmotiBitPacket::Header packetHeader;
 	if (EmotiBitPacket::getHeader(splitPacket, packetHeader))
@@ -2349,12 +2475,14 @@ void ofApp::processSlowResponseMessage2(vector<string> splitPacket)
 		{
 			if (packetHeader.typeTag.compare(EmotiBitPacket::TypeTag::BATTERY_VOLTAGE) == 0)
 			{
-				deviceSelected.setup(GUI_STRING_EMOTIBIT_SELECTED, GUI_STRING_NO_EMOTIBIT_SELECTED);
-				batteryStatus.setup(GUI_STRING_BATTERY_LEVEL, splitPacket.at(6) + "V");
+				//deviceSelected.setup(GUI_STRING_EMOTIBIT_SELECTED, GUI_STRING_NO_EMOTIBIT_SELECTED);
+				//batteryStatus.setup(GUI_STRING_BATTERY_LEVEL, splitPacket.at(6) + "V");
+				deviceInfos.currentBatteryStatus = splitPacket.at(6) + "V";
 			}
 			else if (packetHeader.typeTag.compare(EmotiBitPacket::TypeTag::BATTERY_PERCENT) == 0)
 			{
-				batteryStatus.setup(GUI_STRING_BATTERY_LEVEL, splitPacket.at(6) + "%");
+				//batteryStatus.setup(GUI_STRING_BATTERY_LEVEL, splitPacket.at(6) + "%");
+				deviceInfos.currentBatteryStatus = splitPacket.at(6) + "%";
 			}
 			else if (packetHeader.typeTag.compare(EmotiBitPacket::TypeTag::EMOTIBIT_MODE) == 0)
 			{
@@ -2367,8 +2495,9 @@ void ofApp::processSlowResponseMessage2(vector<string> splitPacket)
 						for (int s = 0; s < typeTags.at(w).size(); s++) {
 							for (int p = 0; p < typeTags.at(w).at(s).size(); p++) {
 								if (splitPacket.at(n).compare(typeTags.at(w).at(s).at(p)) == 0) {
-									dataClippingCount++;
-									guiPanels.at(guiPanelErrors).getControl(GUI_STRING_CLIPPING_EVENTS)->setBackgroundColor(ofColor(255, 0, 0));
+									//dataClippingCount++;
+									//guiPanels.at(guiPanelErrors).getControl(GUI_STRING_CLIPPING_EVENTS)->setBackgroundColor(ofColor(255, 0, 0));
+									deviceInfos.clippingCount++;
 								}
 							}
 						}
@@ -2382,8 +2511,9 @@ void ofApp::processSlowResponseMessage2(vector<string> splitPacket)
 						for (int s = 0; s < typeTags.at(w).size(); s++) {
 							for (int p = 0; p < typeTags.at(w).at(s).size(); p++) {
 								if (splitPacket.at(n).compare(typeTags.at(w).at(s).at(p)) == 0) {
-									dataOverflowCount++;
-									guiPanels.at(guiPanelErrors).getControl(GUI_STRING_OVERFLOW_EVENTS)->setBackgroundColor(ofColor(255, 0, 0));
+									//dataOverflowCount++;
+									//guiPanels.at(guiPanelErrors).getControl(GUI_STRING_OVERFLOW_EVENTS)->setBackgroundColor(ofColor(255, 0, 0));
+									deviceInfos.overflowCount++;
 								}
 							}
 						}
@@ -2398,6 +2528,7 @@ void ofApp::processSlowResponseMessage2(vector<string> splitPacket)
 				//	hibernateStatus.setBackgroundColor(ofColor(0, 0, 0));
 				//	hibernateStatus.getParameter().fromString(GUI_STRING_MODE_ACTIVE);
 				//}
+				/*
 				if (guiPanels.at(guiPanelRecord).getControl(GUI_STRING_CONTROL_RECORD) != NULL) {
 					recordingButton.removeListener(this, &ofApp::recordButtonPressed);
 					recordingButton.set(false);
@@ -2407,20 +2538,19 @@ void ofApp::processSlowResponseMessage2(vector<string> splitPacket)
 					recordingStatus.setBackgroundColor(ofColor(0, 0, 0));
 					recordingStatus.getParameter().fromString(GUI_STRING_NOT_RECORDING);
 				}
+				*/
+				//recordButtonPressedNew = false;
 			}
 		}
 	}
 }
 
-void ofApp::CenteredTextBox(string text, ImVec2 boxSize, string childWindow)
-{
-	ImGui::BeginChild(childWindow.c_str(), boxSize, true, ImGuiWindowFlags_NoScrollbar);
-	ImVec2 windowBoxSize = ImGui::GetWindowSize();
+void ofApp::CenteredText(const std::string& text, float columWidth) {
 	ImVec2 textSize = ImGui::CalcTextSize(text.c_str());
-	ImGui::SetCursorPos(ImVec2((windowBoxSize.x - textSize.x) * 0.5f, (windowBoxSize.y - textSize.y) * 0.5f));
-	ImGui::Text(text.c_str());
-	ImGui::EndChild();
-}
+	float textOffsetX = (columWidth - textSize.x) * 0.5f;
+	ImGui::SetCursorPosX(ImGui::GetCursorPosX() + textOffsetX);
+	ImGui::Text("%s", text.c_str());
+	};
 
 bool ofApp::UniqueIdUsed(string idToCheck)
 {
