@@ -1109,6 +1109,47 @@ void EmotiBitWiFiHost::parseCommSettings(string jsonStr)
 }
 
 #pragma region NewStuff
+//TODO: Update the other functions to handle multiple devices, e.g. processRequestData so it uses sendData2, handle connection closed by peer, send periodic pings to all devices to keep connection up.
+int8_t EmotiBitWiFiHost::begin2()
+{
+	advertisingPort = EmotiBitComms::WIFI_ADVERTISING_PORT;
+	getAvailableNetworks();
+	if (availableNetworks.size() == 0) {
+		ofLogNotice() << "check if network adapters are enabled";
+		return FAIL;
+	}
+	advertisingCxn.Create();
+	advertisingCxn.SetNonBlocking(true);
+	advertisingCxn.SetReceiveBufferSize(pow(2, 10));
+
+	//_startDataCxn(EmotiBitComms::WIFI_ADVERTISING_PORT + 1);
+	_dataPort = EmotiBitComms::WIFI_ADVERTISING_PORT + 1;
+
+	controlPort = _dataPort + 1;
+	controlCxn.setMessageDelimiter(ofToString(EmotiBitPacket::PACKET_DELIMITER_CSV));
+	while (!controlCxn.setup(controlPort))
+	{
+		// Try to setup a controlPort until we find one that's available
+		controlPort += 2;
+		controlCxn.close();
+		ofLogNotice() << "Trying control port: " << controlPort;
+	}
+
+	ofLogNotice() << "EmotiBit data port: " << _dataPort;
+	ofLogNotice() << "EmotiBit control port: " << controlPort;
+
+	advertisingPacketCounter = 0;
+	controlPacketCounter = 0;
+	//connectedEmotibitIp = "";
+	_isConnected = false;
+	isStartingConnection = false;
+
+
+	dataThread = new std::thread(&EmotiBitWiFiHost::updateDataThread2, this);
+	advertisingThread = new std::thread(&EmotiBitWiFiHost::processAdvertisingThread, this);
+	return SUCCESS;
+}
+
 int8_t EmotiBitWiFiHost::connect2(string deviceId)
 {
 	discoveredEmotibitsMutex.lock();
@@ -1123,21 +1164,23 @@ int8_t EmotiBitWiFiHost::connect2(string deviceId)
 			if (deviceDataConnections.find(deviceId) == deviceDataConnections.end())
 			{
 				uint16_t newDataPort = _dataPort + (deviceDataConnections.size() * 2);
-				DeviceDataConnection newConn;
-				newConn.dataPort = newDataPort;
-				newConn.receivedDataPacketNumber = 60000; //arbitrary start
+				// Allocate new connection on heap
+				auto newConn = std::make_unique<DeviceDataConnection>();
+				newConn-> dataPort = newDataPort;
+				newConn-> receivedDataPacketNumber = 60000; //arbitrary start
 
-				//Create and bind a new UDP socket for this device
-				newConn.dataCxn.Create();
-				while (!newConn.dataCxn.Bind(newDataPort))
+				
+				newConn-> dataCxn.Create();
+				while (!newConn ->dataCxn.Bind(newDataPort))
 				{
 					newDataPort += 2;
 					ofLogNotice() << "Trying data port: " << newDataPort;
 				}
-				newConn.dataCxn.SetNonBlocking(true);
-				newConn.dataCxn.SetReceiveBufferSize(pow(2, 10));
+				newConn-> dataCxn.SetNonBlocking(true);
+				newConn-> dataCxn.SetReceiveBufferSize(pow(2, 10));
 
-				deviceDataConnections[deviceId] = newConn;
+				//Move pointer into map
+				deviceDataConnections[deviceId] = std::move(newConn);
 				ofLogNotice() << "Created data connection for device " << deviceId << " on port " << newDataPort;
 
 				//Send a connection message to the device that includes the new data port
@@ -1160,16 +1203,26 @@ int8_t EmotiBitWiFiHost::connect2(string deviceId)
 	}
 	return SUCCESS;
 }
+
+void EmotiBitWiFiHost::updateDataThread2()
+{
+	while (!stopDataThread)
+	{
+		updateData2();
+		threadSleepFor(_wifiHostSettings.dataThreadSleep);
+	}
+}
+
 void EmotiBitWiFiHost::updateData2()
 {
 	for (auto& it : deviceDataConnections)
 	{
 		string deviceId = it.first;
-		DeviceDataConnection& conn = it.second;
+		auto &conn = it.second;
 		string message;
 
 		dataCxnMutex.lock();
-		readUdp(conn.dataCxn, message, "");
+		readUdp(conn -> dataCxn, message, "");
 		dataCxnMutex.unlock();
 
 		if (message.size() > 0)
@@ -1214,5 +1267,79 @@ void EmotiBitWiFiHost::updateData2()
 			} while (endChar != string::npos && startChar < message.size());	
 		}
 	}
+}
+
+int8_t EmotiBitWiFiHost::sendData2(const string& deviceId, const string& packet)
+{
+	if (deviceDataConnections.find(deviceId) != deviceDataConnections.end())
+	{
+		auto &conn = deviceDataConnections[deviceId];
+		dataCxnMutex.lock();
+		conn -> dataCxn.Send(packet.c_str(), packet.length());
+		dataCxnMutex.unlock();
+		return SUCCESS;
+	}
+	else
+	{
+		return FAIL;
+	}
+}
+
+int8_t EmotiBitWiFiHost::disconnect2(const string& deviceId)
+{
+	const int maxSize = 32768;
+	if (deviceDataConnections.find(deviceId) != deviceDataConnections.end())
+	{
+		//Send disconnect message
+		controlCxnMutex.lock();
+		string packet = EmotiBitPacket::createPacket(EmotiBitPacket::TypeTag::EMOTIBIT_DISCONNECT, controlPacketCounter++, "", 0);
+		for (int i = controlCxn.getLastID() - 1; i >= 0; i--)
+		{
+			string ip = controlCxn.getClientIP(i);
+			if (ip.compare(_discoveredEmotibits[deviceId].ip) == 0)
+			{
+				controlCxn.send(i, packet);
+			}
+		}
+		controlCxnMutex.unlock();
+
+		//Clean up dedicated udp connection
+		dataCxnMutex.lock();
+		char flushBuffer[maxSize];
+		while (deviceDataConnections[deviceId] -> dataCxn.Receive(flushBuffer, maxSize) > 0) {}
+		dataCxnMutex.unlock();
+
+		deviceDataConnections.erase(deviceId);
+		ofLogNotice() << "Disconnected device " << deviceId;
+		return SUCCESS;
+	}
+	else
+	{
+		return FAIL;
+	}
+}
+
+unordered_map<string, vector<string>> EmotiBitWiFiHost::GetAllDeviceDataPackets()
+{
+	unordered_map<string, vector<string>> devicePackets;
+	const int maxSize = 32768;
+	for (auto& it : deviceDataConnections)
+	{
+		string deviceId = it.first;
+		vector<string> packets;
+		char buffer[maxSize];
+		int msgSize = it.second -> dataCxn.Receive(buffer, maxSize);
+		while (msgSize > 0)
+		{
+			string packet(buffer, msgSize);
+			packets.push_back(packet);
+			int msgSize = it.second -> dataCxn.Receive(buffer, maxSize);
+		}
+		if (!packets.empty())
+		{
+			devicePackets[deviceId] = packets;
+		}
+	}
+	return devicePackets;
 }
 #pragma endregion 

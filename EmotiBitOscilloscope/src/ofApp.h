@@ -318,10 +318,14 @@ public:
 	void DrawOscilloscopes2();
 	void processSlowResponseMessage2(string packet);
 	void processSlowResponseMessage2(vector<string> splitPacket);
+	void processModePacket(const string& deviceId, vector<string> splitPacket);
+	void processSlowResponseMessage2(const string& deviceId, const vector<string>& splitPacket);
+	
 	void updateDeviceList2();
 	bool UniqueIdUsed(string idToCheck);
 	const char* StringifyPowerMode(PowerMode modeToStringify);
-	void ShowDataForDevice(string deviceId, bool& showPlot);
+	void ShowDataForDevice(const string& deviceId, bool& showPlot);
+	void ClearOscilloscopes(const string& deviceId);
 
 	int selectedTimeSlot;
 	int customTimeSlot;
@@ -349,6 +353,7 @@ public:
 		int clippingCount;
 		int overflowCount;
 		bool showPlotCurrently;
+		string recordingFileName;
 	};
 	unordered_map<string, EmotibitInfo> discoveredDevices;
 	unordered_map<string, AdvancedEmotibitInfo> discoveredDevicesInfo;

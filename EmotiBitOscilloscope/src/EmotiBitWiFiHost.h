@@ -187,9 +187,15 @@ public:
 		uint16_t receivedDataPacketNumber = 60000;
 
 	};
-	unordered_map<string, DeviceDataConnection> deviceDataConnections;
+	unordered_map<string, std::unique_ptr<DeviceDataConnection>> deviceDataConnections;
+
 	int8_t connect2(string deviceId);
 	void updateData2();
+	void updateDataThread2();
+	int8_t begin2();
+	int8_t sendData2(const string& deviceId, const string& packet);
+	int8_t disconnect2(const string& deviceId);
+	unordered_map<string, vector<string>> GetAllDeviceDataPackets();
 #pragma endregion
 
 };

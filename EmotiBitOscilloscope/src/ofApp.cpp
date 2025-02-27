@@ -208,16 +208,16 @@ void ofApp::removeDataStream(std::string typetag)
 }
 #pragma endregion
 //--------------------------------------------------------------
+/*
 void ofApp::draw() {
-	//drawOscilloscopes();
-	//drawConsole();
-	newGui.begin();
-	DrawNewGui();
-	newGui.end();
+	drawOscilloscopes();
+	drawConsole();
 }
+*/
 
 //--------------------------------------------------------------
 void ofApp::exit() {
+	
 	printf("exit()");
 }
 
@@ -1831,7 +1831,7 @@ void ofApp::setup(){
 	string commSettings = loadTextFile(commSettingsFile);
 	emotiBitWiFi.parseCommSettings(commSettings);
 
-	emotiBitWiFi.begin();
+	emotiBitWiFi.begin2();
 	timeWindowOnSetup = 10;
 
 	logData = true;
@@ -1855,7 +1855,13 @@ void ofApp::setup(){
 	testCount = 0;
 
 	// set log level to FATAL_ERROR to remove unrelated LSL error overflow in the console
-	ofSetLogLevel(OF_LOG_FATAL_ERROR);
+	//ofSetLogLevel(OF_LOG_FATAL_ERROR);
+}
+
+void ofApp::draw() {
+	newGui.begin();
+	DrawNewGui();
+	newGui.end();
 }
 
 void ofApp::update()
@@ -1873,15 +1879,20 @@ void ofApp::update()
 	*/
 	//emotiBitWiFi.processAdvertisingThread();
 	
-	vector<string> dataPackets;
-	emotiBitWiFi.readData(dataPackets);
-	
-	for (auto packet : dataPackets)
+	unordered_map<string, vector<string>> devicePackets = emotiBitWiFi.GetAllDeviceDataPackets();
+
+
+	for (auto& entry : devicePackets)
 	{
-		processSlowResponseMessage2(packet);
-		if (logData)
+		string deviceId = entry.first;
+		for (auto& packet : entry.second)
 		{
-			dataLogger.push(packet + '\n');
+			vector<string> splitPacket = ofSplitString(packet, ofToString(","));
+			processSlowResponseMessage2(deviceId, splitPacket);
+			if (logData)
+			{
+				dataLogger.push(packet + "\n");
+			}
 		}
 	}
 	
@@ -1925,7 +1936,6 @@ void ofApp::DrawNewGui()
 			ImGui::SetCursorPosX(columnWidth * 6);
 			CenteredText("Show/Hide Plots", columnWidth);
 			
-			
 		}
 		
 		if (ImGui::BeginPopup("PowerModeDropDown"))
@@ -1950,15 +1960,6 @@ void ofApp::DrawNewGui()
 			ImGui::EndPopup();
 		}
 		ImGui::EndChild();
-		/*
-		CenteredTextBox("Device names", textBoxSize, "DeviceNameTextbox");
-		ImGui::SameLine();
-
-		CenteredTextBox("Battery", textBoxSize, "BatteryTextbox");
-		ImGui::SameLine();
-
-		CenteredTextBox("SD File", textBoxSize, "SDTextbox");
-		*/
 		
 		//Select all button
 		if (ImGui::Button("Select All"))
@@ -2011,7 +2012,7 @@ void ofApp::DrawNewGui()
 			ImGui::SameLine();
 
 			ImGui::SetCursorPosX(columnWidth * 5);
-			CenteredText(("%s", advancedDeviceInfo.isRecording ? "Recording" : "Idle"), columnWidth);
+			CenteredText(("%s", advancedDeviceInfo.isRecording ? ("Recording to %s",advancedDeviceInfo.recordingFileName) : "Idle"), columnWidth);
 			ImGui::SameLine();
 
 			ImGui::SetCursorPosX(columnWidth * 6);
@@ -2055,16 +2056,16 @@ void ofApp::DrawNewGui()
 		ImGui::End();
 	}
 
-	if (ImGui::Begin("Data Visualization Control", nullptr, ImGuiWindowFlags_NoCollapse))
+	if (ImGui::Begin("Test Control", nullptr, ImGuiWindowFlags_NoCollapse))
 	{
-		//DrawOscilloscopes2();
+		ImGui::Text("TestCount = %d", testCount);
 		ImGui::End();
 	}
 	
 
 }
 
-void ofApp:: DrawOscilloscopes2()
+void ofApp::DrawOscilloscopes2()
 {
 	if (ImGui::Button(showOsc ? "Hide Oscilloscope" : "Show Oscilloscope"))
 	{
@@ -2168,7 +2169,7 @@ void ofApp:: DrawOscilloscopes2()
 	*/
 }
 
-void ofApp::ShowDataForDevice(string deviceId, bool& showPlot)
+void ofApp::ShowDataForDevice(const string& deviceId, bool& showPlot)
 {
 	auto it = devicePlots.find(deviceId);
 	if (it == devicePlots.end())
@@ -2177,10 +2178,29 @@ void ofApp::ShowDataForDevice(string deviceId, bool& showPlot)
 
 	if (showPlot)
 	{
+		emotiBitWiFi.connect2(deviceId);
 		for (size_t i = 0; i < devicePlot.size(); i++)
 		{
 			devicePlot[i].plot();
 		}
+	}
+	else
+	{
+		ClearOscilloscopes(deviceId);
+	}
+	
+}
+
+void ofApp::ClearOscilloscopes(const string& deviceId)
+{
+	auto itPlot = devicePlots.find(deviceId);
+	if (itPlot == devicePlots.end())
+	{
+		return;
+	}
+	for (size_t w = 0; w < itPlot->second.size(); w++)
+	{
+		itPlot->second.at(w).clearData();
 	}
 	
 }
@@ -2195,27 +2215,18 @@ void ofApp::updateDeviceList2()
 	{
 		string deviceId = it->first;
 		EmotibitInfo _emotiBitInfo = it->second;
-
-		bool found2 = false;
-		AdvancedEmotibitInfo advancedInfo;
-		//See if discovered emotibit is already in the map for visualization of data
-		auto itt = discoveredDevicesInfo.find(deviceId);
-		if (itt != discoveredDevicesInfo.end())
-		{
-			found2 = true;
-		}
-		else
+		//See if discovered emotibit is not in the map for visualization of data
+		if (discoveredDevicesInfo.find(deviceId) == discoveredDevicesInfo.end())
 		{
 			//Add new device to list of devices to be visualized. 
-			advancedInfo = AdvancedEmotibitInfo(_emotiBitInfo);
+			AdvancedEmotibitInfo advancedInfo = AdvancedEmotibitInfo(_emotiBitInfo);
 			discoveredDevicesInfo[deviceId] = advancedInfo;
 		}
 
 		//Create new Multiscope for each device if not existent yet
-		auto ittt = devicePlots.find(deviceId);
-		if (ittt == devicePlots.end())
+		if (devicePlots.find(deviceId) == devicePlots.end())
 		{
-			devicePlots[deviceId] = scopeWins;
+			devicePlots[deviceId] = scopeWins; //ScopeWins is the template
 		}
 	}
 	//Removal of stale emotibits from discoveredDevicesInfo 
@@ -2357,8 +2368,10 @@ void ofApp::processSlowResponseMessage2(string packet) {
 	processSlowResponseMessage2(splitPacket);
 }
 
+//remove if multi handling of emotibits works
 void ofApp::processSlowResponseMessage2(vector<string> splitPacket)
 {
+	testCount = 0;
 	//Check if EmotiBit to process data for is also in the list of possible devices
 	auto it = discoveredDevicesInfo.find(emotiBitDeviceToVisualize);
 	if (it == discoveredDevicesInfo.end())
@@ -2545,13 +2558,257 @@ void ofApp::processSlowResponseMessage2(vector<string> splitPacket)
 	}
 }
 
+void ofApp::processSlowResponseMessage2(const string& deviceId, const vector<string>& splitPacket)
+{
+	//Lookup the AdvancedEmotiBitInfo for this device
+	auto it = discoveredDevicesInfo.find(deviceId);
+	if (it == discoveredDevicesInfo.end())
+	{
+		return;
+	}
+	AdvancedEmotibitInfo& deviceInfos = it->second;
+
+	EmotiBitPacket::Header packetHeader;
+	if (EmotiBitPacket::getHeader(splitPacket, packetHeader))
+	{
+		if (packetHeader.dataLength >= MAX_BUFFER_LENGTH)
+		{
+			bufferUnderruns++;
+			cout << "**** POSSIBLE BUFFER UNDERRUN EVENT " << bufferUnderruns << ", " << packetHeader.dataLength << " ****" << endl;
+		}
+
+		//Add streams to plot if data is detected and not already added
+		if (packetHeader.typeTag.compare(EmotiBitPacket::TypeTag::THERMOPILE) == 0 && typeTagIndexes.find(EmotiBitPacket::TypeTag::THERMOPILE) == typeTagIndexes.end())
+		{
+			addDataStream(EmotiBitPacket::TypeTag::THERMOPILE);
+		}
+		if (packetHeader.typeTag.compare(EmotiBitPacket::TypeTag::TEMPERATURE_1) == 0 && typeTagIndexes.find(EmotiBitPacket::TypeTag::TEMPERATURE_1) == typeTagIndexes.end())
+		{
+			addDataStream(EmotiBitPacket::TypeTag::TEMPERATURE_1);
+		}
+
+		auto indexPtr = typeTagIndexes.find(packetHeader.typeTag);
+		if (indexPtr != typeTagIndexes.end())
+		{
+			vector<vector<float>> data;
+			int w = indexPtr->second.at(0); //scope window index
+			int s = indexPtr->second.at(1); // scope index
+			int p = indexPtr->second.at(2); //plot index
+			data.resize(typeTags.at(w).at(s).size());
+
+			vector<string> oscAddresses;
+			vector<ofxOscMessage> oscMessages;
+			if (sendOsc)//Prepare Osc message
+			{
+				oscAddresses = oscPatchboard.patchcords[packetHeader.typeTag];
+				oscMessages.resize(oscAddresses.size());
+				for (int a = 0; a < oscAddresses.size();a++)
+				{
+					oscMessages.at(a).setAddress(oscAddresses.at(a));
+				}
+			}
+
+			for (size_t n = EmotiBitPacket::headerLength; n < splitPacket.size(); n++)
+			{
+				float value = ofToFloat(splitPacket.at(n));
+				data.at(p).push_back(value);
+
+				if (sendLsl)
+				{
+					vector<float> lslSample(1, value);
+					emotibitLsl.addSample(lslSample, packetHeader.typeTag, deviceId);
+				}
+
+				if (sendOsc)
+				{
+					for (int a = 0; a < oscMessages.size(); a++)
+					{
+						oscMessages.at(a).addFloatArg(value);
+					}
+				}
+			}
+
+			if (sendOsc)
+			{
+				for (int a = 0; a < oscMessages.size(); a++)
+				{
+					oscSender.sendMessage(oscMessages.at(a));
+				}
+			}
+
+			if (!isPaused)
+			{
+				processAperiodicData(packetHeader.typeTag, data.at(p));
+				bool isAperiodic = false;
+				for (uint8_t i = 0; i < EmotiBitPacket::TypeTagGroups::NUM_APERIODIC; i++)
+				{
+					if (packetHeader.typeTag.compare(EmotiBitPacket::TypeTagGroups::APERIODIC[i]) == 0)
+					{
+						isAperiodic = true;
+						break;
+					}
+				}
+				if (!isAperiodic)
+				{
+					auto itPlot = devicePlots.find(deviceId);
+					if (itPlot != devicePlots.end())
+					{
+						itPlot->second.at(w).scopes.at(s).updateData(data);
+					}
+				}
+			}
+
+			bufferSizes.at(w).at(s).at(p) = packetHeader.dataLength;
+			dataCounts.at(w).at(s).at(p) += packetHeader.dataLength;
+
+			//Special autscaling for EDA data
+			if (!DEBUGGING && packetHeader.typeTag.compare(EmotiBitPacket::TypeTag::EDA) == 0 && !data.at(p).empty())
+			{
+				testCount = 1;
+				minYSpans.at(w).at(s) = 0.1f * pow(data.at(p).at(0), 1.5f);
+				if (yLims.at(w).at(s).at(0) == yLims.at(w).at(s).at(1))
+				{
+					auto itPlot = devicePlots.find(deviceId);
+					if (itPlot != devicePlots.end())
+					{
+						itPlot->second.at(w).scopes.at(s).autoscaleY(true, minYSpans.at(w).at(s));
+					}
+				}
+			}
+		}
+		else
+		{
+			testCount = 2;
+			//Process non plotting messages
+			if (packetHeader.typeTag.compare(EmotiBitPacket::TypeTag::BATTERY_VOLTAGE) == 0)
+			{
+				deviceInfos.currentBatteryStatus = splitPacket.at(6) + "V";
+			}
+			else if(packetHeader.typeTag.compare(EmotiBitPacket::TypeTag::BATTERY_PERCENT) == 0)
+			{
+				deviceInfos.currentBatteryStatus = splitPacket.at(6) + "%";
+			}
+			else if (packetHeader.typeTag.compare(EmotiBitPacket::TypeTag::EMOTIBIT_MODE) == 0)
+			{
+				processModePacket(deviceId, splitPacket);
+			}
+			else if (packetHeader.typeTag.compare(EmotiBitPacket::TypeTag::DATA_CLIPPING) == 0)
+			{
+				for (size_t n = EmotiBitPacket::headerLength; n < splitPacket.size(); n++)
+				{
+					for (size_t w = 0; w < typeTags.size(); w++)
+					{
+						for (size_t s = 0; s < typeTags.at(w).size();s++)
+						{
+							for (size_t p = 0; p < typeTags.at(w).at(s).size();p++)
+							{
+								if (splitPacket.at(n).compare(typeTags.at(w).at(s).at(p)) == 0)
+								{
+									deviceInfos.clippingCount++;
+								}
+							}
+						}
+					}
+				}
+			}
+			else if (packetHeader.typeTag.compare(EmotiBitPacket::TypeTag::DATA_OVERFLOW) == 0)
+			{
+				for (size_t n = EmotiBitPacket::headerLength; n < splitPacket.size(); n++)
+				{
+					for (size_t w = 0; w < typeTags.size(); w++)
+					{
+						for (size_t s = 0; s < typeTags.at(w).size();s++)
+						{
+							for (size_t p = 0; p < typeTags.at(w).at(s).size();p++)
+							{
+								if (splitPacket.at(n).compare(typeTags.at(w).at(s).at(p)) == 0)
+								{
+									deviceInfos.overflowCount++;
+								}
+							}
+						}
+					}
+				}
+			}
+			else if (packetHeader.typeTag.compare(EmotiBitPacket::TypeTag::RESET) == 0)
+			{
+				//TODO Handle reset behaviour
+			}
+		}
+	}
+}
+
+void ofApp::processModePacket(const string& deviceId, vector<string> splitPacket)
+{
+	auto it = discoveredDevicesInfo.find(deviceId);
+	if (it == discoveredDevicesInfo.end())
+	{
+		return;
+	}
+	AdvancedEmotibitInfo& deviceInfos = it->second;
+
+	size_t startIndex = EmotiBitPacket::headerLength;
+	string value;
+
+	int pos = EmotiBitPacket::getPacketKeyedValue(splitPacket, EmotiBitPacket::PayloadLabel::RECORDING_STATUS, value);
+	if (pos > -1)
+	{
+		if (value.compare(EmotiBitPacket::TypeTag::RECORD_BEGIN) == 0)
+		{
+			deviceInfos.isRecording = true;
+			// See if we got a filename for the file we're recording to
+			if (pos + 1 < splitPacket.size())
+			{
+				string filename = splitPacket.at(pos + 1);
+				if (filename.size() > 4 && filename.substr(filename.size() - 4, 4).compare(".csv") == 0)
+				{
+					_testingHelper.updateSdCardFilename(filename);
+					deviceInfos.recordingFileName = filename;
+				}
+				else
+				{
+					deviceInfos.recordingFileName = GUI_STRING_RECORDING;
+				}
+			}
+		}
+		else if (value.compare(EmotiBitPacket::TypeTag::RECORD_END) == 0)
+		{
+			deviceInfos.isRecording = false;
+		}
+	}
+
+	if (EmotiBitPacket::getPacketKeyedValue(splitPacket, EmotiBitPacket::PayloadLabel::POWER_STATUS, value) > -1)
+	{
+		if (value.compare(EmotiBitPacket::TypeTag::MODE_NORMAL_POWER) == 0)
+		{
+			deviceInfos.currentPowerMode = PowerMode::NORMAL_POWER;
+		}
+		else if (value.compare(EmotiBitPacket::TypeTag::MODE_LOW_POWER) == 0)
+		{
+			deviceInfos.currentPowerMode = PowerMode::LOW_POWER;
+		}
+		else if (value.compare(EmotiBitPacket::TypeTag::MODE_MAX_LOW_POWER) == 0)
+		{
+			deviceInfos.currentPowerMode = PowerMode::MAX_LOW_POWER;
+		}
+		else if (value.compare(EmotiBitPacket::TypeTag::MODE_WIRELESS_OFF) == 0)
+		{
+			deviceInfos.currentPowerMode = PowerMode::WIRELESS_OFF;
+			emotiBitWiFi.disconnect2(deviceId);
+		}
+		else if (value.compare(EmotiBitPacket::TypeTag::MODE_HIBERNATE) == 0)
+		{
+			deviceInfos.currentPowerMode = PowerMode::HIBERNATE;
+			emotiBitWiFi.disconnect2(deviceId);
+		}
+	}
+}
 void ofApp::CenteredText(const std::string& text, float columWidth) {
 	ImVec2 textSize = ImGui::CalcTextSize(text.c_str());
 	float textOffsetX = (columWidth - textSize.x) * 0.5f;
 	ImGui::SetCursorPosX(ImGui::GetCursorPosX() + textOffsetX);
 	ImGui::Text("%s", text.c_str());
 	};
-
 bool ofApp::UniqueIdUsed(string idToCheck)
 {
 	return (uniqueIds.find(idToCheck) != uniqueIds.end());
