@@ -1108,7 +1108,7 @@ void EmotiBitWiFiHost::parseCommSettings(string jsonStr)
 	}
 }
 
-#pragma region NewStuff
+#pragma region MultiEmotibit
 //TODO: Update the other functions to handle multiple devices, e.g. processRequestData so it uses sendData2, handle connection closed by peer, send periodic pings to all devices to keep connection up.
 int8_t EmotiBitWiFiHost::begin2()
 {
@@ -1171,13 +1171,14 @@ int8_t EmotiBitWiFiHost::connect2(string deviceId)
 
 				
 				newConn-> dataCxn.Create();
+				newConn->dataCxn.SetReuseAddress(false);
 				while (!newConn ->dataCxn.Bind(newDataPort))
 				{
 					newDataPort += 2;
 					ofLogNotice() << "Trying data port: " << newDataPort;
 				}
 				newConn-> dataCxn.SetNonBlocking(true);
-				newConn-> dataCxn.SetReceiveBufferSize(pow(2, 10));
+				newConn-> dataCxn.SetReceiveBufferSize(pow(2, 15));
 
 				//Move pointer into map
 				deviceDataConnections[deviceId] = std::move(newConn);
@@ -1219,8 +1220,10 @@ void EmotiBitWiFiHost::updateData2()
 	{
 		string deviceId = it.first;
 		auto &conn = it.second;
-		string message;
 
+		if (conn->isReceivingData) continue;
+
+		string message;
 		dataCxnMutex.lock();
 		readUdp(conn -> dataCxn, message, "");
 		dataCxnMutex.unlock();
@@ -1319,7 +1322,7 @@ int8_t EmotiBitWiFiHost::disconnect2(const string& deviceId)
 	}
 }
 
-unordered_map<string, vector<string>> EmotiBitWiFiHost::GetAllDeviceDataPackets()
+unordered_map<string, vector<string>> EmotiBitWiFiHost::getAllDeviceDataPackets()
 {
 	unordered_map<string, vector<string>> devicePackets;
 	const int maxSize = 32768;
@@ -1341,5 +1344,14 @@ unordered_map<string, vector<string>> EmotiBitWiFiHost::GetAllDeviceDataPackets(
 		}
 	}
 	return devicePackets;
+}
+
+void EmotiBitWiFiHost::pauseDataReception(const string& deviceId, bool pause)
+{
+	auto it = deviceDataConnections.find(deviceId);
+	if (it != deviceDataConnections.end())
+	{
+		it->second->isReceivingData = !pause;
+	}
 }
 #pragma endregion 

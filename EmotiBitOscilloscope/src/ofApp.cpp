@@ -1860,7 +1860,7 @@ void ofApp::setup(){
 
 void ofApp::draw() {
 	newGui.begin();
-	DrawNewGui();
+	drawNewGui();
 	newGui.end();
 }
 
@@ -1879,7 +1879,7 @@ void ofApp::update()
 	*/
 	//emotiBitWiFi.processAdvertisingThread();
 	
-	unordered_map<string, vector<string>> devicePackets = emotiBitWiFi.GetAllDeviceDataPackets();
+	unordered_map<string, vector<string>> devicePackets = emotiBitWiFi.getAllDeviceDataPackets();
 
 
 	for (auto& entry : devicePackets)
@@ -1899,7 +1899,7 @@ void ofApp::update()
 	updateDeviceList2();
 }
 
-void ofApp::DrawNewGui() 
+void ofApp::drawNewGui() 
 {
 	//Left panel: device list
 	if (ImGui::Begin("Devices", nullptr, ImGuiWindowFlags_NoCollapse)){
@@ -1907,11 +1907,11 @@ void ofApp::DrawNewGui()
 		ImGui::BeginChild("Header", ImVec2(columnWidth * 7, 30), true, ImGuiWindowFlags_NoScrollbar);
 		{
 			ImGui::SetCursorPosX(0);
-			CenteredText("Device names", columnWidth);
+			centeredText("Device names", columnWidth);
 			ImGui::SameLine();
 
 			ImGui::SetCursorPosX(columnWidth);
-			CenteredText("Battery", columnWidth);
+			centeredText("Battery", columnWidth);
 			ImGui::SameLine();
 
 			ImGui::SetCursorPosX(columnWidth*2);
@@ -1922,19 +1922,19 @@ void ofApp::DrawNewGui()
 			ImGui::SameLine();
 
 			ImGui::SetCursorPosX(columnWidth*3);
-			CenteredText("Clipping count", columnWidth);
+			centeredText("Clipping count", columnWidth);
 			ImGui::SameLine();
 
 			ImGui::SetCursorPosX(columnWidth * 4);
-			CenteredText("Overflow count", columnWidth);
+			centeredText("Overflow count", columnWidth);
 			ImGui::SameLine();
 
 			ImGui::SetCursorPosX(columnWidth * 5);
-			CenteredText("SD File", columnWidth);
+			centeredText("SD File", columnWidth);
 			ImGui::SameLine();
 
 			ImGui::SetCursorPosX(columnWidth * 6);
-			CenteredText("Show/Hide Plots", columnWidth);
+			centeredText("Connect to EmotiBit", columnWidth);
 			
 		}
 		
@@ -1992,35 +1992,35 @@ void ofApp::DrawNewGui()
 			ImGui::SameLine();
 
 			ImGui::SetCursorPosX(columnWidth);
-			CenteredText(("%s", advancedDeviceInfo.currentBatteryStatus).c_str(), columnWidth);
+			centeredText(("%s", advancedDeviceInfo.currentBatteryStatus).c_str(), columnWidth);
 			ImGui::SameLine();
 
 			ImGui::SetCursorPosX(columnWidth * 2);
-			CenteredText(("%s", StringifyPowerMode(advancedDeviceInfo.currentPowerMode)), columnWidth);
+			centeredText(("%s", stringifyPowerMode(advancedDeviceInfo.currentPowerMode)), columnWidth);
 			ImGui::SameLine();
 
 			ImGui::SetCursorPosX(columnWidth * 3);
 			std::stringstream stc;
 			stc << advancedDeviceInfo.clippingCount;
-			CenteredText(stc.str(), columnWidth);
+			centeredText(stc.str(), columnWidth);
 			ImGui::SameLine();
 
 			ImGui::SetCursorPosX(columnWidth * 4);
 			std::stringstream sto;
 			sto << advancedDeviceInfo.overflowCount;
-			CenteredText(sto.str(), columnWidth);
+			centeredText(sto.str(), columnWidth);
 			ImGui::SameLine();
 
 			ImGui::SetCursorPosX(columnWidth * 5);
-			CenteredText(("%s", advancedDeviceInfo.isRecording ? ("Recording to %s",advancedDeviceInfo.recordingFileName) : "Idle"), columnWidth);
+			centeredText(("%s", advancedDeviceInfo.isRecording ? ("Recording to %s",advancedDeviceInfo.recordingFileName) : "Idle"), columnWidth);
 			ImGui::SameLine();
 
 			ImGui::SetCursorPosX(columnWidth * 6);
-			if (ImGui::Checkbox("Show data", &it->second.showPlotCurrently))
+			if (ImGui::Checkbox("Connected?", &it->second.isConnected))
 			{
 				
 			}
-			ShowDataForDevice(deviceId, it->second.showPlotCurrently);
+			connectToDevice(deviceId);
 			ImGui::PopID();
 		}
 		ImGui::EndChild();
@@ -2056,142 +2056,80 @@ void ofApp::DrawNewGui()
 		ImGui::End();
 	}
 
-	if (ImGui::Begin("Test Control", nullptr, ImGuiWindowFlags_NoCollapse))
+	if (ImGui::Begin("Oscilloscope Control", nullptr, ImGuiWindowFlags_NoCollapse))
 	{
-		ImGui::Text("TestCount = %d", testCount);
+		//TODO::Adding the pause function and this broke the showing of plots
+		float width = 220.f;
+		for (int i = 0; i < 4; i++)
+		{
+			ImGui::PushID(i);
+			std::string s1 = "##DropDown" + std::to_string(i);
+			std::string s2 = "Select EmotiBit for plot " + std::to_string(i+1);
+
+			ImGui::SetCursorPosX((i%2)*width);
+			ImGui::SetNextItemWidth(width);
+			if (ImGui::BeginCombo(s1.c_str(), s2.c_str()))
+			{
+				for (auto it = discoveredDevicesInfo.begin(); it != discoveredDevicesInfo.end(); i++)
+				{
+					string deviceId = it->first;
+					if (ImGui::Selectable(deviceId.c_str(), it->second.showPlot))
+					{
+
+					}
+					drawOscilloscopes2(deviceId);
+				}
+				ImGui::EndCombo();
+			}
+			if (i == 0 || i == 2) ImGui::SameLine();
+			ImGui::PopID();
+			
+		}
 		ImGui::End();
 	}
 	
 
 }
 
-void ofApp::DrawOscilloscopes2()
+void ofApp::drawOscilloscopes2(const string& deviceId)
 {
-	if (ImGui::Button(showOsc ? "Hide Oscilloscope" : "Show Oscilloscope"))
+	auto it = discoveredDevicesInfo.find(deviceId);
+	if (it == discoveredDevicesInfo.end()) return;
+
+	if (it->second.showPlot)
 	{
-		showOsc = !showOsc;
-		
-	}
-	ImGui::SameLine();
-	if (showOsc)
-	{
-		
-		for (size_t i = 0; i < scopeWins.size(); i++)
+		emotiBitWiFi.pauseDataReception(deviceId, false);
+		auto itPlot = devicePlots.find(deviceId);
+		if (itPlot == devicePlots.end()) return;
+		for (int w = 0; w < itPlot->second.size(); w++)
 		{
-			scopeWins[i].plot();
-		}
-
-		if (ImGui::BeginCombo("##DeviceDropDown", emotiBitDeviceToVisualize.empty() ? "Select device for visualization" : emotiBitDeviceToVisualize.c_str()))
-		{
-			for (auto it = discoveredDevicesInfo.begin(); it != discoveredDevicesInfo.end(); it++)
-			{
-				string deviceId = it->first;
-				bool isSelected = (emotiBitDeviceToVisualize == deviceId);
-
-				if (ImGui::Selectable(deviceId.c_str(), isSelected))
-				{
-					emotiBitDeviceToVisualize = deviceId;
-				}
-				if (isSelected) {
-					ImGui::SetItemDefaultFocus();
-				}
-			}
-			ImGui::EndCombo();
-		}
-
-		//Check if selected emotibit to visualize was changed and update connection status accordingly
-		if (emotiBitDeviceToVisualize != emotiBitWiFi.connectedEmotibitIdentifier && emotiBitWiFi.connectedEmotibitIdentifier.empty())
-		{
-			emotiBitWiFi.connect(emotiBitDeviceToVisualize);
-			testCount = 1;
-		} 
-		else if (emotiBitDeviceToVisualize != emotiBitWiFi.connectedEmotibitIdentifier)
-		{
-			emotiBitWiFi.disconnect();
-			clearOscilloscopes(true);
-			emotiBitWiFi.connect(emotiBitDeviceToVisualize);
-			testCount = 2;
-		}
-		else
-		{
-			testCount = 3;
-		}
-		ImGui::Text("I landed in case %d", testCount);
-	}
-	
-	
-	/*
-	if (ImGui::Begin("Data Info"))
-	{
-		static uint64_t freqCalcTimer = ofGetElapsedTimeMillis();
-		uint32_t elapsedTime = ofGetElapsedTimeMillis() - freqCalcTimer;
-		if (elapsedTime > 2000)
-		{
-			freqCalcTimer = ofGetElapsedTimeMillis();
-			for (size_t w = 0; w < typeTags.size(); w++)
-			{
-				for (size_t s = 0; s < typeTags[w].size(); s++)
-				{
-					for (size_t p = 0; typeTags[w][s].size(); p++)
-					{
-						dataFreqs[w][s][p] = 1000.f * dataCounts[w][s][p] / float(elapsedTime);
-						dataCounts[w][s][p] = 0;
-					}
-				}
-			}
-		}
-
-		for (size_t w = 0; w < typeTags.size(); w++)
-		{
-			for (size_t s = 0; s < typeTags[w].size(); s++)
-			{
-				for (size_t p = 0; typeTags[w][s].size(); p++)
-				{
-					//Color from plotcolors normalized to [0,1]
-					ImVec4 color = ImVec4(
-						plotColors[w][s][p].r / 255.f,
-						plotColors[w][s][p].g / 255.f,
-						plotColors[w][s][p].b / 255.f,
-						1.0f
-					);
-					//Preparing text strings
-					std::string bufferStr = ofToString(bufferSizes[w][s][p] + " (Buffr)");
-					std::string freqStr = ofToString(dataFreqs[w][s][p], 1);
-
-					//Draw texts to gui
-					ImGui::TextColored(color, "%s", bufferStr.c_str());
-					ImGui::TextColored(color, "%s", freqStr.c_str());
-				}
-			}
-		}
-	}
-	ImGui::End();
-	*/
-}
-
-void ofApp::ShowDataForDevice(const string& deviceId, bool& showPlot)
-{
-	auto it = devicePlots.find(deviceId);
-	if (it == devicePlots.end())
-		return;
-	vector<ofxMultiScope>& devicePlot = it->second;
-
-	if (showPlot)
-	{
-		emotiBitWiFi.connect2(deviceId);
-		for (size_t i = 0; i < devicePlot.size(); i++)
-		{
-			devicePlot[i].plot();
+			itPlot->second.at(w).plot();
 		}
 	}
 	else
 	{
-		ClearOscilloscopes(deviceId);
+		emotiBitWiFi.pauseDataReception(deviceId, true);
+		clearOscilloscopes(deviceId);
 	}
-	
+
 }
 
-void ofApp::ClearOscilloscopes(const string& deviceId)
+void ofApp::connectToDevice(const string& deviceId)
+{
+	auto it = discoveredDevicesInfo.find(deviceId);
+	if (it != discoveredDevicesInfo.end())
+	{
+		return;
+	}
+	if (!it->second.isConnected)
+	{
+		emotiBitWiFi.connect2(deviceId);
+		it->second.isConnected = true;
+	}
+
+}
+
+void ofApp::clearOscilloscopes(const string& deviceId)
 {
 	auto itPlot = devicePlots.find(deviceId);
 	if (itPlot == devicePlots.end())
@@ -2803,17 +2741,17 @@ void ofApp::processModePacket(const string& deviceId, vector<string> splitPacket
 		}
 	}
 }
-void ofApp::CenteredText(const std::string& text, float columWidth) {
+void ofApp::centeredText(const std::string& text, float columWidth) {
 	ImVec2 textSize = ImGui::CalcTextSize(text.c_str());
 	float textOffsetX = (columWidth - textSize.x) * 0.5f;
 	ImGui::SetCursorPosX(ImGui::GetCursorPosX() + textOffsetX);
 	ImGui::Text("%s", text.c_str());
 	};
-bool ofApp::UniqueIdUsed(string idToCheck)
+bool ofApp::uniqueIdUsed(string idToCheck)
 {
 	return (uniqueIds.find(idToCheck) != uniqueIds.end());
 }
-const char* ofApp::StringifyPowerMode(PowerMode modeToStringify)
+const char* ofApp::stringifyPowerMode(PowerMode modeToStringify)
 {
 	switch (modeToStringify) {
 		case PowerMode::HIBERNATE:

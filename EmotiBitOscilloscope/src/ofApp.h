@@ -313,19 +313,19 @@ public:
 	//added
 	ofxImGui::Gui newGui;
 
-	void DrawNewGui();
-	void CenteredText(const std::string& text, float columWidth);
-	void DrawOscilloscopes2();
+	void drawNewGui();
+	void centeredText(const std::string& text, float columWidth);
+	void drawOscilloscopes2(const string& deviceId);
 	void processSlowResponseMessage2(string packet);
 	void processSlowResponseMessage2(vector<string> splitPacket);
 	void processModePacket(const string& deviceId, vector<string> splitPacket);
 	void processSlowResponseMessage2(const string& deviceId, const vector<string>& splitPacket);
 	
 	void updateDeviceList2();
-	bool UniqueIdUsed(string idToCheck);
-	const char* StringifyPowerMode(PowerMode modeToStringify);
-	void ShowDataForDevice(const string& deviceId, bool& showPlot);
-	void ClearOscilloscopes(const string& deviceId);
+	bool uniqueIdUsed(string idToCheck);
+	const char* stringifyPowerMode(PowerMode modeToStringify);
+	void connectToDevice(const string& deviceId);
+	void clearOscilloscopes(const string& deviceId);
 
 	int selectedTimeSlot;
 	int customTimeSlot;
@@ -341,19 +341,20 @@ public:
 		
 	public:
 		//BAse-Constructor
-		AdvancedEmotibitInfo(string ip = "", bool isAvailable = false, uint64_t lastSeen = ofGetElapsedTimeMillis(), bool isRecording = false, PowerMode currentPowerMode = PowerMode::LOW_POWER, string currentBatteryStatus = "0", bool isSelected = false, int clippingCount = 0, int overflowCount = 0, bool showPlotCurrently = false)
-			:EmotibitInfo(ip, isAvailable, lastSeen), isRecording(isRecording), currentPowerMode(currentPowerMode), currentBatteryStatus(currentBatteryStatus), isSelected(isSelected), clippingCount(clippingCount), overflowCount(overflowCount), showPlotCurrently(showPlotCurrently) { }
+		AdvancedEmotibitInfo(string ip = "", bool isAvailable = false, uint64_t lastSeen = ofGetElapsedTimeMillis(), bool isRecording = false, PowerMode currentPowerMode = PowerMode::LOW_POWER, string currentBatteryStatus = "0", bool isSelected = false, int clippingCount = 0, int overflowCount = 0, bool showPlot = false, bool isConnected = false)
+			:EmotibitInfo(ip, isAvailable, lastSeen), isRecording(isRecording), currentPowerMode(currentPowerMode), currentBatteryStatus(currentBatteryStatus), isSelected(isSelected), clippingCount(clippingCount), overflowCount(overflowCount), showPlot(showPlot), isConnected(isConnected) { }
 		//Constructor from given EmotibitInfo
-		AdvancedEmotibitInfo(const EmotibitInfo& emotibitInfo, bool isRecording = false, PowerMode currentPowerMode = PowerMode::LOW_POWER, string currentBatteryStatus = "?%", bool isSelected = false, int clippingCount = 0, int overflowCount = 0, bool showPlotCurrently = false)
-			:EmotibitInfo(emotibitInfo.ip, emotibitInfo.isAvailable, emotibitInfo.lastSeen), isRecording(isRecording), currentPowerMode(currentPowerMode), currentBatteryStatus(currentBatteryStatus), isSelected(isSelected),clippingCount(clippingCount), overflowCount(overflowCount), showPlotCurrently(showPlotCurrently) {}
+		AdvancedEmotibitInfo(const EmotibitInfo& emotibitInfo, bool isRecording = false, PowerMode currentPowerMode = PowerMode::LOW_POWER, string currentBatteryStatus = "?%", bool isSelected = false, int clippingCount = 0, int overflowCount = 0, bool showPlot = false, bool isConnected = false)
+			:EmotibitInfo(emotibitInfo.ip, emotibitInfo.isAvailable, emotibitInfo.lastSeen), isRecording(isRecording), currentPowerMode(currentPowerMode), currentBatteryStatus(currentBatteryStatus), isSelected(isSelected),clippingCount(clippingCount), overflowCount(overflowCount), showPlot(showPlot), isConnected(isConnected) {}
 		bool isRecording;
 		PowerMode currentPowerMode;
 		string currentBatteryStatus;
 		bool isSelected;
 		int clippingCount;
 		int overflowCount;
-		bool showPlotCurrently;
+		bool showPlot;
 		string recordingFileName;
+		bool isConnected;
 	};
 	unordered_map<string, EmotibitInfo> discoveredDevices;
 	unordered_map<string, AdvancedEmotibitInfo> discoveredDevicesInfo;
