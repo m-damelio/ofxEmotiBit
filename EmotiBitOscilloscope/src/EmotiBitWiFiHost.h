@@ -185,10 +185,11 @@ public:
 		uint16_t dataPort;
 		ofxUDPManager dataCxn;
 		uint16_t receivedDataPacketNumber = 60000;
-		bool isReceivingData = true;
+		bool stopReceivingData = false;
 
 	};
 	unordered_map<string, std::unique_ptr<DeviceDataConnection>> deviceDataConnections;
+	std::mutex deviceConnectionsMutex;
 
 	int8_t connect2(string deviceId);
 	void updateData2();

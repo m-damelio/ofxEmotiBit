@@ -341,20 +341,22 @@ public:
 		
 	public:
 		//BAse-Constructor
-		AdvancedEmotibitInfo(string ip = "", bool isAvailable = false, uint64_t lastSeen = ofGetElapsedTimeMillis(), bool isRecording = false, PowerMode currentPowerMode = PowerMode::LOW_POWER, string currentBatteryStatus = "0", bool isSelected = false, int clippingCount = 0, int overflowCount = 0, bool showPlot = false, bool isConnected = false)
-			:EmotibitInfo(ip, isAvailable, lastSeen), isRecording(isRecording), currentPowerMode(currentPowerMode), currentBatteryStatus(currentBatteryStatus), isSelected(isSelected), clippingCount(clippingCount), overflowCount(overflowCount), showPlot(showPlot), isConnected(isConnected) { }
+		AdvancedEmotibitInfo(string ip = "", bool isAvailable = false, uint64_t lastSeen = ofGetElapsedTimeMillis(), bool isRecording = false, PowerMode currentPowerMode = PowerMode::LOW_POWER, string currentBatteryStatus = "0", bool isSelected = false, int clippingCount = 0, int overflowCount = 0, bool showPlot = false, bool isConnected = false, bool userWantsToConnect = false)
+			:EmotibitInfo(ip, isAvailable, lastSeen), isRecording(isRecording), currentPowerMode(currentPowerMode), currentBatteryStatus(currentBatteryStatus), isSelected(isSelected), clippingCount(clippingCount), overflowCount(overflowCount), showPlot(showPlot), isConnected(isConnected), userWantsToConnect(userWantsToConnect) {}
 		//Constructor from given EmotibitInfo
-		AdvancedEmotibitInfo(const EmotibitInfo& emotibitInfo, bool isRecording = false, PowerMode currentPowerMode = PowerMode::LOW_POWER, string currentBatteryStatus = "?%", bool isSelected = false, int clippingCount = 0, int overflowCount = 0, bool showPlot = false, bool isConnected = false)
-			:EmotibitInfo(emotibitInfo.ip, emotibitInfo.isAvailable, emotibitInfo.lastSeen), isRecording(isRecording), currentPowerMode(currentPowerMode), currentBatteryStatus(currentBatteryStatus), isSelected(isSelected),clippingCount(clippingCount), overflowCount(overflowCount), showPlot(showPlot), isConnected(isConnected) {}
-		bool isRecording;
+		AdvancedEmotibitInfo(const EmotibitInfo& emotibitInfo, bool isRecording = false, PowerMode currentPowerMode = PowerMode::LOW_POWER, string currentBatteryStatus = "?%", bool isSelected = false, int clippingCount = 0, int overflowCount = 0, bool showPlot = false, bool isConnected = false, bool userWantsToConnect = false)
+			:EmotibitInfo(emotibitInfo.ip, emotibitInfo.isAvailable, emotibitInfo.lastSeen), isRecording(isRecording), currentPowerMode(currentPowerMode), currentBatteryStatus(currentBatteryStatus), isSelected(isSelected),clippingCount(clippingCount), overflowCount(overflowCount), showPlot(showPlot), isConnected(isConnected), userWantsToConnect(userWantsToConnect) {}
 		PowerMode currentPowerMode;
 		string currentBatteryStatus;
-		bool isSelected;
 		int clippingCount;
 		int overflowCount;
-		bool showPlot;
 		string recordingFileName;
+		//For Ui state handling
+		bool showPlot; 
+		bool isRecording;
+		bool isSelected;
 		bool isConnected;
+		bool userWantsToConnect;
 	};
 	unordered_map<string, EmotibitInfo> discoveredDevices;
 	unordered_map<string, AdvancedEmotibitInfo> discoveredDevicesInfo;

@@ -1109,7 +1109,7 @@ void EmotiBitWiFiHost::parseCommSettings(string jsonStr)
 }
 
 #pragma region MultiEmotibit
-//TODO: Update the other functions to handle multiple devices, e.g. processRequestData so it uses sendData2, handle connection closed by peer, send periodic pings to all devices to keep connection up.
+//TODO: Update the other functions to handle multiple devices, e.g. processRequestData so it uses sendData2, handle connection closed by peer, send periodic pings to all devices to keep connection up
 int8_t EmotiBitWiFiHost::begin2()
 {
 	advertisingPort = EmotiBitComms::WIFI_ADVERTISING_PORT;
@@ -1152,6 +1152,8 @@ int8_t EmotiBitWiFiHost::begin2()
 
 int8_t EmotiBitWiFiHost::connect2(string deviceId)
 {
+	std::lock_guard<std::mutex> lock(deviceConnectionsMutex);
+
 	discoveredEmotibitsMutex.lock();
 	string ip = _discoveredEmotibits[deviceId].ip;
 	bool isAvailable = _discoveredEmotibits[deviceId].isAvailable;
@@ -1171,7 +1173,7 @@ int8_t EmotiBitWiFiHost::connect2(string deviceId)
 
 				
 				newConn-> dataCxn.Create();
-				newConn->dataCxn.SetReuseAddress(false);
+				newConn-> dataCxn.SetReuseAddress(false);
 				while (!newConn ->dataCxn.Bind(newDataPort))
 				{
 					newDataPort += 2;
@@ -1216,12 +1218,14 @@ void EmotiBitWiFiHost::updateDataThread2()
 
 void EmotiBitWiFiHost::updateData2()
 {
+	std::lock_guard<std::mutex> lock(deviceConnectionsMutex);
+
 	for (auto& it : deviceDataConnections)
 	{
 		string deviceId = it.first;
 		auto &conn = it.second;
 
-		if (conn->isReceivingData) continue;
+		if (conn->stopReceivingData) continue;
 
 		string message;
 		dataCxnMutex.lock();
@@ -1290,6 +1294,8 @@ int8_t EmotiBitWiFiHost::sendData2(const string& deviceId, const string& packet)
 
 int8_t EmotiBitWiFiHost::disconnect2(const string& deviceId)
 {
+	std::lock_guard<std::mutex> lock(deviceConnectionsMutex);
+
 	const int maxSize = 32768;
 	if (deviceDataConnections.find(deviceId) != deviceDataConnections.end())
 	{
@@ -1334,9 +1340,14 @@ unordered_map<string, vector<string>> EmotiBitWiFiHost::getAllDeviceDataPackets(
 		int msgSize = it.second -> dataCxn.Receive(buffer, maxSize);
 		while (msgSize > 0)
 		{
+			if (msgSize > maxSize)
+			{
+				msgSize = 0;
+				break;
+			}
 			string packet(buffer, msgSize);
 			packets.push_back(packet);
-			int msgSize = it.second -> dataCxn.Receive(buffer, maxSize);
+			msgSize = it.second -> dataCxn.Receive(buffer, maxSize);
 		}
 		if (!packets.empty())
 		{
@@ -1351,7 +1362,7 @@ void EmotiBitWiFiHost::pauseDataReception(const string& deviceId, bool pause)
 	auto it = deviceDataConnections.find(deviceId);
 	if (it != deviceDataConnections.end())
 	{
-		it->second->isReceivingData = !pause;
+		it->second->stopReceivingData = pause;
 	}
 }
 #pragma endregion 

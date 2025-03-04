@@ -1966,7 +1966,7 @@ void ofApp::drawNewGui()
 		{
 			for (auto& device : discoveredDevicesInfo)
 			{
-				device.second.isSelected = true;
+				device.second.isSelected = !device.second.isSelected;
 			}
 		}
 		ImGui::Separator();
@@ -1979,15 +1979,15 @@ void ofApp::drawNewGui()
 		{
 			
 			string deviceId = it->first;
-			AdvancedEmotibitInfo advancedDeviceInfo = it->second;
+			AdvancedEmotibitInfo& advancedDeviceInfo = it->second;
 			
 			ImGui::PushID(deviceId.c_str());
 			uniqueIds.insert(deviceId);
 
 			ImGui::SetCursorPosX(0);
-			if (ImGui::Checkbox(deviceId.c_str(), &it->second.isSelected))
+			if (ImGui::Checkbox(deviceId.c_str(), &advancedDeviceInfo.isSelected))
 			{
-				advancedDeviceInfo.isSelected = !advancedDeviceInfo.isSelected;
+
 			}
 			ImGui::SameLine();
 
@@ -2016,11 +2016,20 @@ void ofApp::drawNewGui()
 			ImGui::SameLine();
 
 			ImGui::SetCursorPosX(columnWidth * 6);
-			if (ImGui::Checkbox("Connected?", &it->second.isConnected))
+			if (ImGui::Checkbox("Connected?", &advancedDeviceInfo.userWantsToConnect))
 			{
-				
+				if (!advancedDeviceInfo.isConnected && advancedDeviceInfo.userWantsToConnect)
+				{
+					testCount = 1;
+					connectToDevice(deviceId);
+					emotiBitWiFi.pauseDataReception(deviceId, false);
+				}
+				else if(advancedDeviceInfo.isConnected && !advancedDeviceInfo.userWantsToConnect)
+				{
+					emotiBitWiFi.pauseDataReception(deviceId, true);
+					testCount = 2;
+				}
 			}
-			connectToDevice(deviceId);
 			ImGui::PopID();
 		}
 		ImGui::EndChild();
@@ -2058,39 +2067,89 @@ void ofApp::drawNewGui()
 
 	if (ImGui::Begin("Oscilloscope Control", nullptr, ImGuiWindowFlags_NoCollapse))
 	{
-		//TODO::Adding the pause function and this broke the showing of plots
 		float width = 220.f;
-		for (int i = 0; i < 4; i++)
+		static std::vector<int> selectedIndices(4, -1);
+		std::vector<std::string> names;
+		for (const auto& pair : discoveredDevicesInfo)
 		{
-			ImGui::PushID(i);
-			std::string s1 = "##DropDown" + std::to_string(i);
-			std::string s2 = "Select EmotiBit for plot " + std::to_string(i+1);
+			names.push_back(pair.first);
+		}
 
-			ImGui::SetCursorPosX((i%2)*width);
+		//Draws 4 dropdowns to choose which device to plot for which plot j
+		for (int j = 0; j < 4; j++)
+		{
+			ImGui::PushID(j);
+			std::string comboLabel = "##DropDown" + std::to_string(j);
+			std::string selectionDefaultLabel = "Select EmotiBit for plot " + std::to_string(j+1);
+			std::string currentSelection = (selectedIndices[j] >= 0) ? names[selectedIndices[j]] : selectionDefaultLabel;
+
+			ImGui::SetCursorPosX((j%2)*width);
 			ImGui::SetNextItemWidth(width);
-			if (ImGui::BeginCombo(s1.c_str(), s2.c_str()))
+			if (ImGui::BeginCombo(comboLabel.c_str(), currentSelection.c_str()))
 			{
-				for (auto it = discoveredDevicesInfo.begin(); it != discoveredDevicesInfo.end(); i++)
+				int index = 0;
+				for (auto it = discoveredDevicesInfo.begin(); it != discoveredDevicesInfo.end(); it++)
 				{
-					string deviceId = it->first;
-					if (ImGui::Selectable(deviceId.c_str(), it->second.showPlot))
+					if (selectedIndices[j] != index && it->second.showPlot)
 					{
-
+						index++;
+						continue;
 					}
-					drawOscilloscopes2(deviceId);
+					string deviceId = it->first;
+					bool isSelected = (selectedIndices[j] == index);
+					if (ImGui::Selectable(deviceId.c_str(), isSelected))
+					{
+						if (selectedIndices[j] != index)
+						{
+							//If a different emotibit in this dropdown was selected, take name from name list and turn off plot showing flag
+							if (selectedIndices[j] != -1)
+							{
+								const std::string& oldSelection = names[selectedIndices[j]];
+								discoveredDevicesInfo[oldSelection].showPlot = false;
+							}
+							it->second.showPlot = true;
+							selectedIndices[j] = index;
+						}
+						else
+						{
+							//Toggling same emotibit
+							it->second.showPlot = false;
+							selectedIndices[j] = -1;
+						}
+						
+						
+					}
+					if (isSelected)
+					{
+						ImGui::SetItemDefaultFocus();
+					}
+					index++;
+					
 				}
 				ImGui::EndCombo();
 			}
-			if (i == 0 || i == 2) ImGui::SameLine();
+			if (j == 0 || j == 2) ImGui::SameLine();
 			ImGui::PopID();
 			
 		}
+		//Iterates over each device and draws oscilloscopes depending on if showPlot flag of device is set to true, overhead possible because unnecessary function call, TODO: Change this
+		for (const auto& pair : discoveredDevicesInfo)
+		{
+			drawOscilloscopes2(pair.first);
+		}
+		ImGui::End();
+	}
+
+	if (ImGui::Begin("Test Case Control", nullptr, ImGuiWindowFlags_NoCollapse))
+	{
+		ImGui::Text("We are in case: %d", testCount);
 		ImGui::End();
 	}
 	
 
 }
 
+//TODO: Plotting of received data doesn't properly work yet, adjust sizes of template oscilloscopes and change their position
 void ofApp::drawOscilloscopes2(const string& deviceId)
 {
 	auto it = discoveredDevicesInfo.find(deviceId);
@@ -2098,7 +2157,7 @@ void ofApp::drawOscilloscopes2(const string& deviceId)
 
 	if (it->second.showPlot)
 	{
-		emotiBitWiFi.pauseDataReception(deviceId, false);
+		
 		auto itPlot = devicePlots.find(deviceId);
 		if (itPlot == devicePlots.end()) return;
 		for (int w = 0; w < itPlot->second.size(); w++)
@@ -2108,7 +2167,6 @@ void ofApp::drawOscilloscopes2(const string& deviceId)
 	}
 	else
 	{
-		emotiBitWiFi.pauseDataReception(deviceId, true);
 		clearOscilloscopes(deviceId);
 	}
 
@@ -2117,14 +2175,13 @@ void ofApp::drawOscilloscopes2(const string& deviceId)
 void ofApp::connectToDevice(const string& deviceId)
 {
 	auto it = discoveredDevicesInfo.find(deviceId);
-	if (it != discoveredDevicesInfo.end())
+	if (it == discoveredDevicesInfo.end())
 	{
 		return;
 	}
 	if (!it->second.isConnected)
 	{
 		emotiBitWiFi.connect2(deviceId);
-		it->second.isConnected = true;
 	}
 
 }
@@ -2309,7 +2366,6 @@ void ofApp::processSlowResponseMessage2(string packet) {
 //remove if multi handling of emotibits works
 void ofApp::processSlowResponseMessage2(vector<string> splitPacket)
 {
-	testCount = 0;
 	//Check if EmotiBit to process data for is also in the list of possible devices
 	auto it = discoveredDevicesInfo.find(emotiBitDeviceToVisualize);
 	if (it == discoveredDevicesInfo.end())
@@ -2602,7 +2658,6 @@ void ofApp::processSlowResponseMessage2(const string& deviceId, const vector<str
 			//Special autscaling for EDA data
 			if (!DEBUGGING && packetHeader.typeTag.compare(EmotiBitPacket::TypeTag::EDA) == 0 && !data.at(p).empty())
 			{
-				testCount = 1;
 				minYSpans.at(w).at(s) = 0.1f * pow(data.at(p).at(0), 1.5f);
 				if (yLims.at(w).at(s).at(0) == yLims.at(w).at(s).at(1))
 				{
@@ -2616,7 +2671,6 @@ void ofApp::processSlowResponseMessage2(const string& deviceId, const vector<str
 		}
 		else
 		{
-			testCount = 2;
 			//Process non plotting messages
 			if (packetHeader.typeTag.compare(EmotiBitPacket::TypeTag::BATTERY_VOLTAGE) == 0)
 			{
