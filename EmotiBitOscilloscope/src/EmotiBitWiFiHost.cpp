@@ -1132,7 +1132,7 @@ int8_t EmotiBitWiFiHost::begin2()
 		// Try to setup a controlPort until we find one that's available
 		controlPort += 2;
 		controlCxn.close();
-		ofLogNotice() << "Trying control port: " << controlPort;
+		ofLogNotice() << "Trying control port: " << controlPort; 
 	}
 
 	ofLogNotice() << "EmotiBit data port: " << _dataPort;
@@ -1264,9 +1264,9 @@ void EmotiBitWiFiHost::updateData2()
 						{
 							if (header.typeTag.compare(EmotiBitPacket::TypeTag::REQUEST_DATA) == 0)
 							{
-								processRequestData(packet, dataStartChar);
+								processRequestData2(deviceId, packet, dataStartChar);
 							}
-							ofLogNotice() << "Device " << deviceId << " received packet: " << packet;
+							//ofLogNotice() << "Device " << deviceId << " received packet: " << packet;
 						}
 					}
 				}
@@ -1274,6 +1274,41 @@ void EmotiBitWiFiHost::updateData2()
 			} while (endChar != string::npos && startChar < message.size());	
 		}
 	}
+}
+
+void EmotiBitWiFiHost::processRequestData2(const string& deviceId, const string& packet, int16_t dataStartChar)
+{
+	string element;
+	string outPacket;
+	do
+	{
+		// Parse through requested packet elements and data
+		dataStartChar = EmotiBitPacket::getPacketElement(packet, element, dataStartChar);
+
+		if (element.compare(EmotiBitPacket::TypeTag::TIMESTAMP_LOCAL) == 0)
+		{
+			outPacket = EmotiBitPacket::createPacket(EmotiBitPacket::TypeTag::TIMESTAMP_LOCAL, dataPacketCounter++, ofGetTimestampString(EmotiBitPacket::TIMESTAMP_STRING_FORMAT), 1);
+			sendData(outPacket);
+		}
+		if (element.compare(EmotiBitPacket::TypeTag::TIMESTAMP_UTC) == 0)
+		{
+			// ToDo: implement UTC timestamp
+		}
+		//if (lsl.isConnected()) {
+		//	double lsltime = lsl::local_clock();
+		//	sendEmotiBitPacket(EmotiBitPacket::TypeTag::TIMESTAMP_CROSS_TIME, ofToString(EmotiBitPacket::TypeTag::TIMESTAMP_LOCAL) + "," + ofGetTimestampString(EmotiBitPacket::TIMESTAMP_STRING_FORMAT) + ",LC," + ofToString(lsltime, 7));
+		//	//cout << EmotiBitPacket::TypeTag::TIMESTAMP_CROSS_TIME << "," << ofToString(EmotiBitPacket::TypeTag::TIMESTAMP_LOCAL) + "," + ofGetTimestampString(EmotiBitPacket::TIMESTAMP_STRING_FORMAT) + ",LC," + ofToString(lsltime, 7) << endl;
+		//}
+		//sendEmotiBitPacket(EmotiBitPacket::TypeTag::ACK, ofToString(header.packetNumber) + ',' + header.typeTag, 2);
+		////cout << EmotibitPacket::TypeTag::REQUEST_DATA << header.packetNumber << endl;
+	} while (dataStartChar > 0);
+	EmotiBitPacket::Header header;
+	EmotiBitPacket::getHeader(packet, header);
+	vector<string> payload;
+	payload.push_back(ofToString(header.packetNumber));
+	payload.push_back(header.typeTag);
+	outPacket = EmotiBitPacket::createPacket(EmotiBitPacket::TypeTag::ACK, dataPacketCounter++, payload);
+	sendData2(deviceId,outPacket);
 }
 
 int8_t EmotiBitWiFiHost::sendData2(const string& deviceId, const string& packet)

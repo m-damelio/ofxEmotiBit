@@ -101,7 +101,7 @@ public:
 	uint16_t availabilityTimeout = 5000;
 	uint16_t ipPurgeTimeout = 15000;
 
-  atomic_bool stopDataThread = {false};
+    atomic_bool stopDataThread = {false};
 	atomic_bool stopAdvertisingThread = { false };
 	uint16_t receivedDataPacketNumber = 60000;	// Tracks packet numbers (for multi-send). Starts at arbitrary large number.
 
@@ -199,6 +199,7 @@ public:
 	int8_t disconnect2(const string& deviceId);
 	unordered_map<string, vector<string>> getAllDeviceDataPackets();
 	void pauseDataReception(const string& deviceId, bool pause);
+	void processRequestData2(const string& deviceId, const string& packet, int16_t dataStartChar);
 #pragma endregion
 
 };

@@ -1814,6 +1814,7 @@ bool ofApp::startUdpOutput()
 	return false;
 }
 #pragma endregion
+
 #pragma region NewGuiStuff
 
 void ofApp::setup(){
@@ -1887,7 +1888,7 @@ void ofApp::update()
 		string deviceId = entry.first;
 		for (auto& packet : entry.second)
 		{
-			vector<string> splitPacket = ofSplitString(packet, ofToString(","));
+			vector<string> splitPacket = ofSplitString(packet, ",");
 			processSlowResponseMessage2(deviceId, splitPacket);
 			if (logData)
 			{
@@ -2143,6 +2144,7 @@ void ofApp::drawNewGui()
 	if (ImGui::Begin("Test Case Control", nullptr, ImGuiWindowFlags_NoCollapse))
 	{
 		ImGui::Text("We are in case: %d", testCount);
+		ImGui::Text("Found packet of type: %s", testString);
 		ImGui::End();
 	}
 	
@@ -2160,9 +2162,9 @@ void ofApp::drawOscilloscopes2(const string& deviceId)
 		
 		auto itPlot = devicePlots.find(deviceId);
 		if (itPlot == devicePlots.end()) return;
-		for (int w = 0; w < itPlot->second.size(); w++)
+		for (int w = 0; w < itPlot->second.oscPlot.size(); w++)
 		{
-			itPlot->second.at(w).plot();
+			itPlot->second.oscPlot.at(w).plot();
 		}
 	}
 	else
@@ -2193,9 +2195,9 @@ void ofApp::clearOscilloscopes(const string& deviceId)
 	{
 		return;
 	}
-	for (size_t w = 0; w < itPlot->second.size(); w++)
+	for (size_t w = 0; w < itPlot->second.oscPlot.size(); w++)
 	{
-		itPlot->second.at(w).clearData();
+		itPlot->second.oscPlot.at(w).clearData();
 	}
 	
 }
@@ -2221,7 +2223,7 @@ void ofApp::updateDeviceList2()
 		//Create new Multiscope for each device if not existent yet
 		if (devicePlots.find(deviceId) == devicePlots.end())
 		{
-			devicePlots[deviceId] = scopeWins; //ScopeWins is the template
+			devicePlots[deviceId] = OscilloscopePlotData(scopeWins, bufferSizes, dataCounts, dataFreqs, yLims, minYSpans);
 		}
 	}
 	//Removal of stale emotibits from discoveredDevicesInfo 
@@ -2556,10 +2558,11 @@ void ofApp::processSlowResponseMessage2(const string& deviceId, const vector<str
 {
 	//Lookup the AdvancedEmotiBitInfo for this device
 	auto it = discoveredDevicesInfo.find(deviceId);
-	if (it == discoveredDevicesInfo.end())
-	{
-		return;
-	}
+	if (it == discoveredDevicesInfo.end()){return;}
+
+	auto itPlot = devicePlots.find(deviceId);
+	if (itPlot == devicePlots.end()){return;}
+
 	AdvancedEmotibitInfo& deviceInfos = it->second;
 
 	EmotiBitPacket::Header packetHeader;
@@ -2570,7 +2573,8 @@ void ofApp::processSlowResponseMessage2(const string& deviceId, const vector<str
 			bufferUnderruns++;
 			cout << "**** POSSIBLE BUFFER UNDERRUN EVENT " << bufferUnderruns << ", " << packetHeader.dataLength << " ****" << endl;
 		}
-
+		
+		ofLogNotice() << "Packet found of type " << packetHeader.typeTag << " from emotibit " << deviceId;
 		//Add streams to plot if data is detected and not already added
 		if (packetHeader.typeTag.compare(EmotiBitPacket::TypeTag::THERMOPILE) == 0 && typeTagIndexes.find(EmotiBitPacket::TypeTag::THERMOPILE) == typeTagIndexes.end())
 		{
@@ -2632,7 +2636,7 @@ void ofApp::processSlowResponseMessage2(const string& deviceId, const vector<str
 
 			if (!isPaused)
 			{
-				processAperiodicData(packetHeader.typeTag, data.at(p));
+				processAperiodicData2(deviceId, packetHeader.typeTag, data.at(p));
 				bool isAperiodic = false;
 				for (uint8_t i = 0; i < EmotiBitPacket::TypeTagGroups::NUM_APERIODIC; i++)
 				{
@@ -2644,28 +2648,21 @@ void ofApp::processSlowResponseMessage2(const string& deviceId, const vector<str
 				}
 				if (!isAperiodic)
 				{
-					auto itPlot = devicePlots.find(deviceId);
-					if (itPlot != devicePlots.end())
-					{
-						itPlot->second.at(w).scopes.at(s).updateData(data);
-					}
+					itPlot->second.oscPlot.at(w).scopes.at(s).updateData(data);
 				}
 			}
 
-			bufferSizes.at(w).at(s).at(p) = packetHeader.dataLength;
-			dataCounts.at(w).at(s).at(p) += packetHeader.dataLength;
+
+			itPlot->second.bufferSizes.at(w).at(s).at(p) = packetHeader.dataLength;
+			itPlot->second.dataCounts.at(w).at(s).at(p) += packetHeader.dataLength;
 
 			//Special autscaling for EDA data
 			if (!DEBUGGING && packetHeader.typeTag.compare(EmotiBitPacket::TypeTag::EDA) == 0 && !data.at(p).empty())
 			{
-				minYSpans.at(w).at(s) = 0.1f * pow(data.at(p).at(0), 1.5f);
-				if (yLims.at(w).at(s).at(0) == yLims.at(w).at(s).at(1))
+				itPlot->second.minYSpans.at(w).at(s) = 0.1f * pow(data.at(p).at(0), 1.5f);
+				if (itPlot->second.yLims.at(w).at(s).at(0) == itPlot->second.yLims.at(w).at(s).at(1))
 				{
-					auto itPlot = devicePlots.find(deviceId);
-					if (itPlot != devicePlots.end())
-					{
-						itPlot->second.at(w).scopes.at(s).autoscaleY(true, minYSpans.at(w).at(s));
-					}
+					itPlot->second.oscPlot.at(w).scopes.at(s).autoscaleY(true, itPlot->second.minYSpans.at(w).at(s));
 				}
 			}
 		}
@@ -2730,6 +2727,33 @@ void ofApp::processSlowResponseMessage2(const string& deviceId, const vector<str
 	}
 }
 
+void ofApp::processAperiodicData2(const string& deviceId, std::string signalId, std::vector<float> data)
+{
+	auto itPlot = devicePlots.find(deviceId);
+	if (itPlot == devicePlots.end()) return;
+
+
+	std::vector<float> periodizedData; // cleared before update inside every update call
+	for (int i = 0; i < periodizerList.size(); i++)
+	{
+		// update() returns size of data which needs to be added into the plot buffers
+		if (periodizerList.at(i).update(signalId, data, periodizedData))
+		{
+			auto indexPtr = typeTagIndexes.find(periodizerList.at(i).outputSignal);
+			if (indexPtr != typeTagIndexes.end())
+			{
+				int w = indexPtr->second.at(0); // Scope window(multiscope)
+				int s = indexPtr->second.at(1); // Scope
+				int p = indexPtr->second.at(2); // Plot
+				std::vector<std::vector<float>> plotData;
+				plotData.resize(typeTags.at(w).at(s).size());
+				plotData.at(p) = periodizedData;
+				// Add data to oscilloscope
+				itPlot->second.oscPlot.at(w).scopes.at(s).updateData(plotData);
+			}
+		}
+	}
+}
 void ofApp::processModePacket(const string& deviceId, vector<string> splitPacket)
 {
 	auto it = discoveredDevicesInfo.find(deviceId);

@@ -326,10 +326,12 @@ public:
 	const char* stringifyPowerMode(PowerMode modeToStringify);
 	void connectToDevice(const string& deviceId);
 	void clearOscilloscopes(const string& deviceId);
+	void processAperiodicData2(const string& deviceId, std::string signalId, std::vector<float> data);
 
 	int selectedTimeSlot;
 	int customTimeSlot;
 	int testCount;
+	string testString;
 
 	bool recordButtonPressedNew = false;
 
@@ -337,7 +339,8 @@ public:
 
 	bool showOsc;
 
-	class AdvancedEmotibitInfo : public EmotibitInfo{
+	class AdvancedEmotibitInfo : public EmotibitInfo
+	{
 		
 	public:
 		//BAse-Constructor
@@ -358,9 +361,21 @@ public:
 		bool isConnected;
 		bool userWantsToConnect;
 	};
+	class OscilloscopePlotData
+	{
+	public:
+		OscilloscopePlotData(vector<ofxMultiScope> oscPlot = {}, vector<vector<vector<int>>> bufferSizes = {}, vector<vector<vector<int>>> dataCounts = {}, vector<vector<vector<float>>> dataFreqs = {}, vector<vector<vector<float>>> yLims = {}, vector<vector<float>> minYSpans = {})
+		: oscPlot(oscPlot), bufferSizes(bufferSizes), dataCounts(dataCounts), dataFreqs(dataFreqs), yLims(yLims), minYSpans(minYSpans) {}
+		vector<ofxMultiScope> oscPlot;
+		vector<vector<vector<int>>> bufferSizes;
+		vector<vector<vector<int>>> dataCounts;
+		vector<vector<vector<float>>> dataFreqs;
+		vector<vector<vector<float>>> yLims;
+		vector<vector<float>> minYSpans;
+	};
 	unordered_map<string, EmotibitInfo> discoveredDevices;
 	unordered_map<string, AdvancedEmotibitInfo> discoveredDevicesInfo;
-	unordered_map<string, vector<ofxMultiScope>> devicePlots;
+	unordered_map<string, OscilloscopePlotData> devicePlots;
 
 	const char* GUI_STRING_MAX_LOW_POWER = "Max low power";
 	const char* GUI_STRING_UNKNOWN_MODE = "Unknown mode";
