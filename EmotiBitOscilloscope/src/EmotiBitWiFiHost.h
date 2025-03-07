@@ -41,6 +41,7 @@ public:
 		int checkAdvertisingInterval = 100; // msec interval between checks for advertising replies
 		int advertisingThreadSleep = 0;	// usec duration to sleep between thread loops
 		int dataThreadSleep = 0;	// usec duration to sleep between thread loops
+		int keepAliveThreadSleep = 100; //usec duration to sleep between thread loops
 
 		bool enableBroadcast = true;
 
@@ -191,6 +192,10 @@ public:
 	unordered_map<string, std::unique_ptr<DeviceDataConnection>> deviceDataConnections;
 	std::mutex deviceConnectionsMutex;
 
+	std::thread* keepAliveThread;
+
+	atomic_bool stopKeepAliveThread = { false };
+
 	int8_t connect2(string deviceId);
 	void updateData2();
 	void updateDataThread2();
@@ -200,6 +205,9 @@ public:
 	unordered_map<string, vector<string>> getAllDeviceDataPackets();
 	void pauseDataReception(const string& deviceId, bool pause);
 	void processRequestData2(const string& deviceId, const string& packet, int16_t dataStartChar);
+	void processKeepAliveThread();
+	void processAdvertisingThread2();
+	int8_t processAdvertising2(vector<string>& infoPackets);
 #pragma endregion
 
 };

@@ -10,6 +10,10 @@ EmotiBitWiFiHost::~EmotiBitWiFiHost()
 	stopAdvertisingThread = true;
 	advertisingThread->join();
 	delete(advertisingThread);
+
+	stopKeepAliveThread = true;
+	keepAliveThread->join();
+	delete(keepAliveThread);
 }
 
 int8_t EmotiBitWiFiHost::begin()
@@ -17,7 +21,7 @@ int8_t EmotiBitWiFiHost::begin()
 	advertisingPort = EmotiBitComms::WIFI_ADVERTISING_PORT;
 	getAvailableNetworks();
 	if (availableNetworks.size() == 0) {
-		ofLogNotice() << "check if network adapters are enabled";
+		ofLogNotice("EmotiBitWiFiHost") << "check if network adapters are enabled";
 		return FAIL;
 	}
 	advertisingCxn.Create();
@@ -33,11 +37,11 @@ int8_t EmotiBitWiFiHost::begin()
 		// Try to setup a controlPort until we find one that's available
 		controlPort += 2;
 		controlCxn.close();
-		ofLogNotice() << "Trying control port: " << controlPort;
+		ofLogNotice("EmotiBitWiFiHost") << "Trying control port: " << controlPort;
 	}
 
-	ofLogNotice() << "EmotiBit data port: " << _dataPort;
-	ofLogNotice() << "EmotiBit control port: " << controlPort;
+	ofLogNotice("EmotiBitWiFiHost") << "EmotiBit data port: " << _dataPort;
+	ofLogNotice("EmotiBitWiFiHost") << "EmotiBit control port: " << controlPort;
 
 	advertisingPacketCounter = 0;
 	controlPacketCounter = 0;
@@ -119,7 +123,7 @@ void EmotiBitWiFiHost::getAvailableNetworks() {
 		for (int network = 0; network < availableNetworks.size(); network++) {
 			allAvailableNetworks += "[" + availableNetworks.at(network) + ".*] ";
 		}
-		ofLogNotice() << "All Network(s): " << allAvailableNetworks;
+		ofLogNotice("EmotiBitWiFiHost") << "All Network(s): " << allAvailableNetworks;
 	}
 }
 
@@ -266,7 +270,7 @@ void EmotiBitWiFiHost::updateAdvertisingIpList(string ip) {
 		for (int network = 0; network < emotibitNetworks.size(); network++) {
 			allEmotibitNetworks += "[" + emotibitNetworks.at(network) + ".*] ";
 		}
-		ofLogNotice() << "Emotibit Network(s): " << allEmotibitNetworks;
+		ofLogNotice("EmotiBitWiFiHost") << "Emotibit Network(s): " << allEmotibitNetworks;
 	}
 }
 
@@ -300,7 +304,7 @@ int8_t EmotiBitWiFiHost::processAdvertising(vector<string> &infoPackets)
 		if (msgSize > 0)
 		{
 			string message = udpMessage;
-			ofLogVerbose() << "Received: " << message;
+			ofLogVerbose("EmotiBitWiFiHost") << "Received: " << message;
 
 			int port;
 			string ip;
@@ -322,19 +326,19 @@ int8_t EmotiBitWiFiHost::processAdvertising(vector<string> &infoPackets)
 						if (valuePos > -1)
 						{
 							updateAdvertisingIpList(ip);
-							ofLogVerbose() << "EmotiBit ip: " << ip << ":" << port;
+							ofLogVerbose("EmotiBitWiFiHost") << "EmotiBit ip: " << ip << ":" << port;
 							int16_t deviceIdPos = -1;
 							deviceIdPos = EmotiBitPacket::getPacketKeyedValue(packet, EmotiBitPacket::PayloadLabel::DEVICE_ID, emotibitDeviceId, dataStartChar);
 							if (deviceIdPos > -1)
 							{
 								// found EmotiBitSrNum in HELLO_HOST message
 								// do nothing. emotibitDeviceid already updated.
-								ofLogVerbose() << "EmotiBit DeviceId: " << emotibitDeviceId;
+								ofLogVerbose("EmotiBitWiFiHost") << "EmotiBit DeviceId: " << emotibitDeviceId;
 							}
 							else
 							{
 								emotibitDeviceId = ip;
-								ofLogVerbose() << "EmotiBit DeviceId: " << "DeviceId not available. using IP address as identifier";
+								ofLogVerbose("EmotiBitWiFiHost") << "EmotiBit DeviceId: " << "DeviceId not available. using IP address as identifier";
 								// Add ip address to our list
 							}
 							discoveredEmotibitsMutex.lock();
@@ -393,7 +397,7 @@ int8_t EmotiBitWiFiHost::processAdvertising(vector<string> &infoPackets)
 			payload.push_back(ofToString(_dataPort));
 			string packet = EmotiBitPacket::createPacket(EmotiBitPacket::TypeTag::PING, advertisingPacketCounter++, payload);
 
-			ofLogVerbose() << "Sent: " << packet;
+			ofLogVerbose("EmotiBitWiFiHost") << "Sent: " << packet;
 
 			advertisingCxn.Connect(connectedEmotibitIp.c_str(), advertisingPort);
 			advertisingCxn.SetEnableBroadcast(false);
@@ -417,7 +421,7 @@ int8_t EmotiBitWiFiHost::processAdvertising(vector<string> &infoPackets)
 			payload.push_back(ofToString(_dataPort));
 			string packet = EmotiBitPacket::createPacket(EmotiBitPacket::TypeTag::EMOTIBIT_CONNECT, advertisingPacketCounter++, payload);
 			
-			ofLogVerbose() << "Sent: " << packet;
+			ofLogVerbose("EmotiBitWiFiHost") << "Sent: " << packet;
 
 			advertisingCxn.Connect(connectedEmotibitIp.c_str(), advertisingPort);
 			advertisingCxn.SetEnableBroadcast(false);
@@ -481,7 +485,7 @@ int8_t EmotiBitWiFiHost::sendControl(const string& packet)
 		//_isConnected = true;
 		//isStartingConnection = false;
 
-		ofLogVerbose() << "Sending: " << packet;
+		ofLogVerbose("EmotiBitWiFiHost") << "Sending: " << packet;
 		controlCxn.send(i, packet);
 	}
 	controlCxnMutex.unlock();
@@ -569,13 +573,13 @@ void EmotiBitWiFiHost::updateData()
 			endChar = message.find_first_of(EmotiBitPacket::PACKET_DELIMITER_CSV, startChar);
 			if (endChar == string::npos)
 			{
-				ofLogWarning() << "**** MALFORMED MESSAGE **** : no packet delimiter found";
+				ofLogWarning("EmotiBitWiFiHost") << "**** MALFORMED MESSAGE **** : no packet delimiter found";
 			}
 			else
 			{
 				if (endChar == startChar)
 				{
-					ofLogWarning() << "**** EMPTY MESSAGE **** ";
+					ofLogWarning("EmotiBitWiFiHost") << "**** EMPTY MESSAGE **** ";
 				}
 				else
 				{
@@ -584,7 +588,7 @@ void EmotiBitWiFiHost::updateData()
 					int16_t dataStartChar = EmotiBitPacket::getHeader(packet, header);	// read header
 					if (dataStartChar == EmotiBitPacket::MALFORMED_HEADER)
 					{
-						ofLogWarning() << "**** MALFORMED PACKET **** : no header data found";
+						ofLogWarning("EmotiBitWiFiHost") << "**** MALFORMED PACKET **** : no header data found";
 					}
 					else
 					{
@@ -754,15 +758,15 @@ int8_t EmotiBitWiFiHost::_startDataCxn(uint16_t dataPort)
 	{
 		// Try to bind _dataPort until we find one that's available
 		_dataPort += 2;
-		ofLogNotice() << "Trying data port: " << _dataPort;
+		ofLogNotice("EmotiBitWiFiHost") << "Trying data port: " << _dataPort;
 	}
 	//dataCxn.SetEnableBroadcast(false);
 	dataCxn.SetNonBlocking(true);
 	dataCxn.SetReceiveBufferSize(pow(2, 15));
 
-	ofLogNotice() << "dataCxn GetMaxMsgSize: " << dataCxn.GetMaxMsgSize();
-	ofLogNotice() << "dataCxn GetReceiveBufferSize: " << dataCxn.GetReceiveBufferSize();
-	ofLogNotice() << "dataCxn GetTimeoutReceive: " << dataCxn.GetTimeoutReceive();
+	ofLogNotice("EmotiBitWiFiHost") << "dataCxn GetMaxMsgSize: " << dataCxn.GetMaxMsgSize();
+	ofLogNotice("EmotiBitWiFiHost") << "dataCxn GetReceiveBufferSize: " << dataCxn.GetReceiveBufferSize();
+	ofLogNotice("EmotiBitWiFiHost") << "dataCxn GetTimeoutReceive: " << dataCxn.GetTimeoutReceive();
 
 	return SUCCESS;
 }
@@ -800,7 +804,7 @@ int8_t EmotiBitWiFiHost::connect(string deviceId)
 			}
 		}
 		catch (const std::out_of_range& oor) {
-			ofLogWarning() << "EmotiBit " << ip << " not found";
+			ofLogWarning("EmotiBitWiFiHost") << "EmotiBit " << ip << " not found";
 			oor;
 		}
 	}
@@ -852,7 +856,7 @@ vector<string> EmotiBitWiFiHost::getLocalIPs()
 #ifdef TARGET_WIN32
 
 	string commandResult = ofSystem("ipconfig");
-	//ofLogVerbose() << commandResult;
+	//ofLogVerbose("EmotiBitWiFiHost") << commandResult;
 
 	for (int pos = 0; pos >= 0; )
 	{
@@ -870,7 +874,7 @@ vector<string> EmotiBitWiFiHost::getLocalIPs()
 			if (ip.substr(0, 3) != "127") // let's skip loopback addresses
 			{
 				result.push_back(ip);
-				//ofLogVerbose() << ip;
+				//ofLogVerbose("EmotiBitWiFiHost") << ip;
 			}
 		}
 	}
@@ -894,7 +898,7 @@ vector<string> EmotiBitWiFiHost::getLocalIPs()
 			if (ip.substr(0, 3) != "127") // let's skip loopback addresses
 			{
 				result.push_back(ip);
-				//ofLogVerbose() << ip;
+				//ofLogVerbose("EmotiBitWiFiHost") << ip;
 			}
 		}
 	}
@@ -1115,7 +1119,7 @@ int8_t EmotiBitWiFiHost::begin2()
 	advertisingPort = EmotiBitComms::WIFI_ADVERTISING_PORT;
 	getAvailableNetworks();
 	if (availableNetworks.size() == 0) {
-		ofLogNotice() << "check if network adapters are enabled";
+		ofLogNotice("EmotiBitWiFiHost") << "check if network adapters are enabled";
 		return FAIL;
 	}
 	advertisingCxn.Create();
@@ -1132,11 +1136,11 @@ int8_t EmotiBitWiFiHost::begin2()
 		// Try to setup a controlPort until we find one that's available
 		controlPort += 2;
 		controlCxn.close();
-		ofLogNotice() << "Trying control port: " << controlPort; 
+		ofLogNotice("EmotiBitWiFiHost") << "Trying control port: " << controlPort;
 	}
 
-	ofLogNotice() << "EmotiBit data port: " << _dataPort;
-	ofLogNotice() << "EmotiBit control port: " << controlPort;
+	ofLogNotice("EmotiBitWiFiHost") << "EmotiBit data port: " << _dataPort;
+	ofLogNotice("EmotiBitWiFiHost") << "EmotiBit control port: " << controlPort;
 
 	advertisingPacketCounter = 0;
 	controlPacketCounter = 0;
@@ -1146,7 +1150,7 @@ int8_t EmotiBitWiFiHost::begin2()
 
 
 	dataThread = new std::thread(&EmotiBitWiFiHost::updateDataThread2, this);
-	advertisingThread = new std::thread(&EmotiBitWiFiHost::processAdvertisingThread, this);
+	advertisingThread = new std::thread(&EmotiBitWiFiHost::processAdvertisingThread2, this);
 	return SUCCESS;
 }
 
@@ -1177,14 +1181,14 @@ int8_t EmotiBitWiFiHost::connect2(string deviceId)
 				while (!newConn ->dataCxn.Bind(newDataPort))
 				{
 					newDataPort += 2;
-					ofLogNotice() << "Trying data port: " << newDataPort;
+					ofLogNotice("EmotiBitWiFiHost") << "Trying data port: " << newDataPort;
 				}
 				newConn-> dataCxn.SetNonBlocking(true);
 				newConn-> dataCxn.SetReceiveBufferSize(pow(2, 15));
 
 				//Move pointer into map
 				deviceDataConnections[deviceId] = std::move(newConn);
-				ofLogNotice() << "Created data connection for device " << deviceId << " on port " << newDataPort;
+				ofLogNotice("EmotiBitWiFiHost") << "Created data connection for device " << deviceId << " on port " << newDataPort;
 
 				//Send a connection message to the device that includes the new data port
 				vector<string> payload;
@@ -1201,7 +1205,7 @@ int8_t EmotiBitWiFiHost::connect2(string deviceId)
 	}
 	catch (const std::out_of_range& oor)
 	{
-		ofLogWarning() << "EmotiBit "<< deviceId << " not found.";
+		ofLogWarning("EmotiBitWiFiHost") << "EmotiBit "<< deviceId << " not found.";
 		return FAIL;
 	}
 	return SUCCESS;
@@ -1224,9 +1228,9 @@ void EmotiBitWiFiHost::updateData2()
 	{
 		string deviceId = it.first;
 		auto &conn = it.second;
-
+		ofLogNotice("EmotiBitWiFiHost") << "Trying to update data for " << deviceId.c_str() << " ...";
 		if (conn->stopReceivingData) continue;
-
+		ofLogNotice("EmotiBitWiFiHost") << "Updating data because stopReceiveData = " << conn->stopReceivingData;
 		string message;
 		dataCxnMutex.lock();
 		readUdp(conn -> dataCxn, message, "");
@@ -1244,13 +1248,13 @@ void EmotiBitWiFiHost::updateData2()
 				endChar = message.find_first_of(EmotiBitPacket::PACKET_DELIMITER_CSV, startChar);
 				if (endChar == string::npos)
 				{
-					ofLogWarning() << "**** MALFORMED MESSAGE **** : no packet delimiter found";
+					ofLogWarning("EmotiBitWiFiHost") << "**** MALFORMED MESSAGE **** : no packet delimiter found";
 				}
 				else
 				{
 					if (endChar == startChar)
 					{
-						ofLogWarning() << "**** EMPTY MESSAGE ****";
+						ofLogWarning("EmotiBitWiFiHost") << "**** EMPTY MESSAGE ****";
 					}
 					else
 					{
@@ -1258,7 +1262,7 @@ void EmotiBitWiFiHost::updateData2()
 						int16_t dataStartChar = EmotiBitPacket::getHeader(packet, header);
 						if (dataStartChar == EmotiBitPacket::MALFORMED_HEADER)
 						{
-							ofLogWarning() << "**** MALFORMED PACKET **** : no header data found";
+							ofLogWarning("EmotiBitWiFiHost") << "**** MALFORMED PACKET **** : no header data found";
 						}
 						else
 						{
@@ -1266,7 +1270,7 @@ void EmotiBitWiFiHost::updateData2()
 							{
 								processRequestData2(deviceId, packet, dataStartChar);
 							}
-							//ofLogNotice() << "Device " << deviceId << " received packet: " << packet;
+							//ofLogNotice("EmotiBitWiFiHost") << "Device " << deviceId << " received packet: " << packet;
 						}
 					}
 				}
@@ -1315,6 +1319,7 @@ int8_t EmotiBitWiFiHost::sendData2(const string& deviceId, const string& packet)
 {
 	if (deviceDataConnections.find(deviceId) != deviceDataConnections.end())
 	{
+		ofLogNotice("EmotiBitWiFiHost") << "Sending Ack to " << deviceId << " with package " << packet;
 		auto &conn = deviceDataConnections[deviceId];
 		dataCxnMutex.lock();
 		conn -> dataCxn.Send(packet.c_str(), packet.length());
@@ -1354,7 +1359,7 @@ int8_t EmotiBitWiFiHost::disconnect2(const string& deviceId)
 		dataCxnMutex.unlock();
 
 		deviceDataConnections.erase(deviceId);
-		ofLogNotice() << "Disconnected device " << deviceId;
+		ofLogNotice("EmotiBitWiFiHost") << "Disconnected device " << deviceId;
 		return SUCCESS;
 	}
 	else
@@ -1394,10 +1399,170 @@ unordered_map<string, vector<string>> EmotiBitWiFiHost::getAllDeviceDataPackets(
 
 void EmotiBitWiFiHost::pauseDataReception(const string& deviceId, bool pause)
 {
+	std::lock_guard<std::mutex> lock(deviceConnectionsMutex);
 	auto it = deviceDataConnections.find(deviceId);
 	if (it != deviceDataConnections.end())
 	{
 		it->second->stopReceivingData = pause;
 	}
+}
+
+void EmotiBitWiFiHost::processKeepAliveThread()
+{
+	while (!stopKeepAliveThread)
+	{
+		std::lock_guard<std::mutex> lock(deviceConnectionsMutex);
+		for (auto& device : deviceDataConnections)
+		{
+			const char* keepAliveMessage = "keep-alive";
+			device.second->dataCxn.Send(keepAliveMessage, strlen(keepAliveMessage));
+		}
+		threadSleepFor(_wifiHostSettings.keepAliveThreadSleep);
+	}
+}
+
+void EmotiBitWiFiHost::processAdvertisingThread2()
+{
+	while (!stopAdvertisingThread)
+	{
+		vector<string> infoPackets;
+		processAdvertising2(infoPackets);
+		threadSleepFor(_wifiHostSettings.advertisingThreadSleep);
+	}
+}
+
+int8_t EmotiBitWiFiHost::processAdvertising2(vector<string>& infoPackets)
+{
+	const int maxSize = 32768;
+
+	sendAdvertising();
+
+	static uint64_t checkAdvertisingTimer = ofGetElapsedTimeMillis();
+	uint64_t checkAdvertisingTime = ofGetElapsedTimeMillis() - checkAdvertisingTimer;
+	if (checkAdvertisingTime >= _wifiHostSettings.checkAdvertisingInterval)
+	{
+		checkAdvertisingTimer = ofGetElapsedTimeMillis();
+
+		static char udpMessage[maxSize];
+		int msgSize = advertisingCxn.Receive(udpMessage, maxSize);
+		if (msgSize > 0)
+		{
+			string message = udpMessage;
+
+			int port;
+			string ip;
+			advertisingCxn.GetRemoteAddr(ip, port);
+
+			vector<string> packets = ofSplitString(message, ofToString(EmotiBitPacket::PACKET_DELIMITER_CSV));
+			for (const auto& packet : packets)
+			{
+				EmotiBitPacket::Header header;
+				int16_t dataStartChar = EmotiBitPacket::getHeader(packet, header);
+				if (dataStartChar != 0)
+				{
+					if (header.typeTag.compare(EmotiBitPacket::TypeTag::HELLO_HOST) == 0)
+					{
+						string value;
+						string deviceId = "";
+						int16_t valuePos = EmotiBitPacket::getPacketKeyedValue(packet, EmotiBitPacket::PayloadLabel::DATA_PORT, value, dataStartChar);
+
+						if (valuePos > -1)
+						{
+							updateAdvertisingIpList(ip);
+							ofLogNotice("EmotiBitWiFiHost") << "Device at " << ip << ":" << port;
+
+							int16_t deviceIdPos = EmotiBitPacket::getPacketKeyedValue(packet, EmotiBitPacket::PayloadLabel::DEVICE_ID, deviceId, dataStartChar);
+
+							if (deviceIdPos > -1)
+							{
+								ofLogNotice("EmotiBitWiFiHost") << "DeviceId: " << deviceId;
+							}
+							else
+							{
+								deviceId = ip;
+								ofLogNotice("EmotiBitWiFiHost") << "DeviceId not provided; using IP (" << deviceId << ")";
+							}
+
+							discoveredEmotibitsMutex.lock();
+							auto it = _discoveredEmotibits.find(deviceId);
+							if (it == _discoveredEmotibits.end())
+							{
+								//New emotibit found
+								_discoveredEmotibits.emplace(deviceId, EmotibitInfo(ip, ofToInt(value) == EmotiBitComms::EMOTIBIT_AVAILABLE, ofGetElapsedTimeMillis()));
+							}
+							else
+							{
+								//update existing device status and timestamp
+								it->second.ip = ip;
+								it->second.isAvailable = (ofToInt(value) == EmotiBitComms::EMOTIBIT_AVAILABLE);
+								it->second.lastSeen = ofGetElapsedTimeMillis();
+							}
+							discoveredEmotibitsMutex.unlock();
+						}
+					}
+					else if (header.typeTag.compare(EmotiBitPacket::TypeTag::PONG) == 0)
+					{
+						discoveredEmotibitsMutex.lock();
+						for (auto& entry : _discoveredEmotibits)
+						{
+							if (entry.second.ip == ip)
+							{
+								entry.second.lastSeen = ofGetElapsedTimeMillis();
+							}
+						}
+						discoveredEmotibitsMutex.unlock();
+					}
+					else
+					{
+						infoPackets.push_back(packet);
+					}
+				}
+			}
+		}
+	}
+
+	static uint64_t pingTimer = ofGetElapsedTimeMillis();
+	if (ofGetElapsedTimeMillis() - pingTimer > pingInterval)
+	{
+		pingTimer = ofGetElapsedTimeMillis();
+		std::lock_guard<std::mutex> lock(deviceConnectionsMutex);
+		discoveredEmotibitsMutex.lock();
+		for (auto& entry : _discoveredEmotibits)
+		{
+			auto& device = deviceDataConnections.find(entry.first);
+			if (device != deviceDataConnections.end())
+			{
+				vector<string> payload;
+				payload.push_back(EmotiBitPacket::PayloadLabel::DATA_PORT);
+				payload.push_back(ofToString(device->second->dataPort));
+				string pingPacket = EmotiBitPacket::createPacket(EmotiBitPacket::TypeTag::PING, advertisingPacketCounter++, payload);
+
+				advertisingCxn.Connect(entry.second.ip.c_str(), advertisingPort);
+				advertisingCxn.SetEnableBroadcast(false);
+				advertisingCxn.Send(pingPacket.c_str(), pingPacket.length());
+				ofLogNotice("EmotiBitWiFiHost") << "Send ping to device " << entry.first << " at " << entry.second.ip << " containing port information " << device->second->dataPort;
+			}
+		}
+		discoveredEmotibitsMutex.unlock();
+	}
+
+	discoveredEmotibitsMutex.lock();
+	vector<string>timedOutDevices;
+	uint64_t currentTime = ofGetElapsedTimeMillis();
+	for (auto& entry : _discoveredEmotibits)
+	{
+		if (currentTime - entry.second.lastSeen > connectionTimeout)
+		{
+			timedOutDevices.push_back(entry.first);
+		}
+	}
+
+	for (auto& deviceId : timedOutDevices)
+	{
+		_discoveredEmotibits.erase(deviceId);
+		disconnect2(deviceId);
+	}
+	discoveredEmotibitsMutex.unlock();
+	return SUCCESS;
 }
 #pragma endregion 

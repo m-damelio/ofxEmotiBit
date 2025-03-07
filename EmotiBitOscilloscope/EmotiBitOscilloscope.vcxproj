@@ -125,6 +125,7 @@
     <ClCompile Include="..\src\SoftwareVersionChecker.cpp" />
     <ClCompile Include="src\EmotiBitLsl.cpp" />
     <ClCompile Include="src\EmotiBitWiFiHost.cpp" />
+    <ClCompile Include="src\FileLogger.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\ofApp.cpp" />
     <ClCompile Include="..\..\..\addons\ofxBiquadFilter\src\ofxBiquadFilter.cpp" />

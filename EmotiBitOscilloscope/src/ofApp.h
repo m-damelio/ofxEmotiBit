@@ -21,6 +21,8 @@
 #include "SoftwareVersionChecker.h"
 #include "EmotiBitLsl.h"
 #include "ofxImGui.h"
+#include "FileLogger.cpp"
+
 
 class ofApp : public ofBaseApp {
 public:

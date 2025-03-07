@@ -1819,6 +1819,7 @@ bool ofApp::startUdpOutput()
 
 void ofApp::setup(){
 	ofLogToConsole();
+	ofSetLoggerChannel(std::make_shared<FileLogger>("log.txt"));
 #ifdef TARGET_MAC_OS
 	ofSetDataPathRoot("../Resources/");
 	cout << "Changed the data pathroot for macOS." << endl;
@@ -2019,17 +2020,22 @@ void ofApp::drawNewGui()
 			ImGui::SetCursorPosX(columnWidth * 6);
 			if (ImGui::Checkbox("Connected?", &advancedDeviceInfo.userWantsToConnect))
 			{
-				if (!advancedDeviceInfo.isConnected && advancedDeviceInfo.userWantsToConnect)
-				{
-					testCount = 1;
-					connectToDevice(deviceId);
-					emotiBitWiFi.pauseDataReception(deviceId, false);
-				}
-				else if(advancedDeviceInfo.isConnected && !advancedDeviceInfo.userWantsToConnect)
-				{
-					emotiBitWiFi.pauseDataReception(deviceId, true);
-					testCount = 2;
-				}
+				
+			}
+			if (!advancedDeviceInfo.isConnected && advancedDeviceInfo.userWantsToConnect)
+			{
+				connectToDevice(deviceId);
+				emotiBitWiFi.pauseDataReception(deviceId, false);
+				testCount = 1;
+			} 
+			else if (advancedDeviceInfo.isConnected && !advancedDeviceInfo.userWantsToConnect)
+			{
+				emotiBitWiFi.pauseDataReception(deviceId, true);
+				testCount = 2;
+			}
+			else if (!advancedDeviceInfo.isConnected && !advancedDeviceInfo.userWantsToConnect)
+			{
+				testCount = 3;
 			}
 			ImGui::PopID();
 		}
@@ -2144,6 +2150,17 @@ void ofApp::drawNewGui()
 	if (ImGui::Begin("Test Case Control", nullptr, ImGuiWindowFlags_NoCollapse))
 	{
 		ImGui::Text("We are in case: %d", testCount);
+		for (const auto& pair : discoveredDevicesInfo)
+		{
+			string deviceId = pair.first;
+			ImGui::Text("This is the deviceInfo for %s: isAvailable = %s, isConnected = %s, isRecording = %s, isSelected = %s, Shows Plot = %s, UserWantsToConnect = %s", deviceId.c_str(),
+				pair.second.isAvailable ? "True" : "False",
+				pair.second.isConnected ? "True" : "False",
+				pair.second.isRecording ? "True" : "False",
+				pair.second.isSelected ? "True" : "False",
+				pair.second.showPlot ? "True" : "False",
+				pair.second.userWantsToConnect ? "True" : "False");
+		}
 		ImGui::Text("Found packet of type: %s", testString);
 		ImGui::End();
 	}
@@ -2183,7 +2200,9 @@ void ofApp::connectToDevice(const string& deviceId)
 	}
 	if (!it->second.isConnected)
 	{
-		emotiBitWiFi.connect2(deviceId);
+		int8_t success = emotiBitWiFi.connect2(deviceId);
+		if (success > -1) it->second.isConnected = true;
+		ofLogNotice("ofApp") << "Connection was established = " << it->second.isConnected;
 	}
 
 }
@@ -2206,7 +2225,19 @@ void ofApp::updateDeviceList2()
 {
 	// Update add any missing EmotiBits on network to the device list
 	// ToDo: consider subtraction of EmotiBits that are stale
+
 	discoveredDevices = emotiBitWiFi.getdiscoveredEmotibits();
+
+	//Removal of deviceInfos contained in discoveredDevicesInfo but not discoveredDevices (should be stale deviceInfos)
+	for (const auto& pair : discoveredDevicesInfo)
+	{
+		string deviceId = pair.first;
+		auto itt = discoveredDevices.find(deviceId);
+		if (itt == discoveredDevices.end())
+		{
+			discoveredDevicesInfo.erase(deviceId);
+		}
+	}
 	//Iterate over discovered emotibits
 	for (auto it = discoveredDevices.begin(); it != discoveredDevices.end(); it++)
 	{
@@ -2227,133 +2258,7 @@ void ofApp::updateDeviceList2()
 		}
 	}
 	//Removal of stale emotibits from discoveredDevicesInfo 
-	for (auto it = discoveredDevicesInfo.begin(); it != discoveredDevicesInfo.end(); it++)
-	{
-		string deviceId = it->first;
-		auto itt = discoveredDevices.find(deviceId);
-		if (itt == discoveredDevices.end())
-		{
-			discoveredDevicesInfo.erase(deviceId);
-		}
-	}
-	/*
-	for (auto it = discoveredEmotibits.begin(); it != discoveredEmotibits.end(); it++)
-	{
-		string deviceId = it->first;
-		bool available = it->second.isAvailable;
-		bool found = false;
-		// Search the GUI list to see if we're missing any EmotiBits
-		for (auto device = deviceList.begin(); device != deviceList.end(); device++)
-		{
-			if (deviceId.compare(device->getName()) == 0)
-			{
-				found = true;
-				break;
-			}
-		}
-		if (!found)
-		{
-			deviceList.emplace_back(deviceId, false);	// Add a new device (unchecked)
-			//deviceList.at(deviceList.size() - 1).addListener(this, &ofApp::deviceSelection);	// Attach a listener
-			guiPanels.at(guiPanelDevice).getGroup(GUI_DEVICE_GROUP_NAME).add(deviceList.at(deviceList.size() - 1));
-			if (discoveredEmotibits.size() == 1 && deviceList.size() == 1)  // This is the first device in the list
-			{
-				// There is one device on the network and it's the first device in the list
-				// connect
-				deviceList.at(deviceList.size() - 1).set(true);
-			}
-		}
-	}
 
-	// Update selected device
-	if (emotiBitWiFi.isConnected())
-	{
-		// ToDo: Think about how to make the displayed text scalable to cover other info. about selected EmotiBit
-		deviceSelected.setup(GUI_STRING_EMOTIBIT_SELECTED, emotiBitWiFi.connectedEmotibitIdentifier);
-	}
-	else
-	{
-		deviceSelected.setup(GUI_STRING_EMOTIBIT_SELECTED, GUI_STRING_NO_EMOTIBIT_SELECTED);
-	}
-
-	// Update deviceList to reflect availability and connection status
-	for (auto device = deviceList.begin(); device != deviceList.end(); device++)
-	{
-		// Update availability color
-		string deviceId = device->getName();
-		bool available = false;
-		try { available = discoveredEmotibits.at(deviceId).isAvailable; }
-		catch (const std::out_of_range& oor) { oor; } // ignore exception
-		ofColor textColor;
-		if (available || deviceId.compare(emotiBitWiFi.connectedEmotibitIdentifier) == 0)
-		{
-			textColor = deviceAvailableColor;
-		}
-		else
-		{
-			textColor = notAvailableColor;
-		}
-		guiPanels.at(guiPanelDevice).getGroup(GUI_DEVICE_GROUP_NAME).getControl(deviceId)->setTextColor(textColor);
-
-		// Update device connection status checkbox
-		bool selected = device->get();
-		if (deviceId.compare(emotiBitWiFi.connectedEmotibitIdentifier) == 0 && !selected)
-		{
-			// Connected to device -- checkbox needs to be checked
-			ofRemoveListener(deviceGroup.parameterChangedE(), this, &ofApp::deviceGroupSelection);
-			device->set(true);
-			ofAddListener(deviceGroup.parameterChangedE(), this, &ofApp::deviceGroupSelection);
-			if (sendLsl)
-			{
-				// Changing devices may require LSL stream setup
-				string sourceId = emotiBitWiFi.connectedEmotibitIdentifier;
-				if (!emotibitLsl.isDataStreamOutputSource(sourceId))
-				{
-					// A new sourceId needs to be added to LSL sender
-					if (lslSettings.empty())
-					{
-						cout << "Loading LSL settings from: " << lslOutputSettingsFile << endl;
-						emotibitLsl.clearDataStreamOutputs(); // clear the existing stream outputs when loading settings to avoid weird conflicts
-						lslSettings = loadTextFile(lslOutputSettingsFile);
-					}
-					string sourceId = emotiBitWiFi.connectedEmotibitIdentifier;
-					if (lslSettings.empty())
-					{
-						cout << "LSL settings not found: " << lslOutputSettingsFile << endl;
-						// ToDo: consider a graceful way to unmark LSL in output list
-						//sendDataList.at(j).set(false);
-						//sendLsl = false;
-					}
-					else if (sourceId.empty())
-					{
-						cout << "Select an EmotiBit to setup LSL streaming" << endl;
-					}
-					else if (!emotibitLsl.addDataStreamOutputs(lslSettings, sourceId) == EmotiBitLsl::ReturnCode::SUCCESS)
-					{
-						cout << "LSL output setup failed: " << emotibitLsl.getlastErrMsg() << endl;
-						// ToDo: consider a graceful way to unmark LSL in output list
-						//sendDataList.at(j).set(false);
-						//sendLsl = false;
-					}
-					else
-					{
-						cout << "Added LSL stream source: " << sourceId << endl;
-						cout << "Starting LSL streaming from: " << sourceId << endl;
-					}
-				}
-				else cout << "Starting LSL streaming from: " << sourceId << endl;
-			}
-		}
-		else if (deviceId.compare(emotiBitWiFi.connectedEmotibitIdentifier) != 0 && selected)
-		{
-			// Not connected to device -- checkbox needs to be unchecked
-			ofRemoveListener(deviceGroup.parameterChangedE(), this, &ofApp::deviceGroupSelection);
-			device->set(false);
-			ofAddListener(deviceGroup.parameterChangedE(), this, &ofApp::deviceGroupSelection);
-			clearOscilloscopes(true);
-		}
-	}
-	*/
 }
 
 void ofApp::processSlowResponseMessage2(string packet) {
@@ -2574,7 +2479,7 @@ void ofApp::processSlowResponseMessage2(const string& deviceId, const vector<str
 			cout << "**** POSSIBLE BUFFER UNDERRUN EVENT " << bufferUnderruns << ", " << packetHeader.dataLength << " ****" << endl;
 		}
 		
-		ofLogNotice() << "Packet found of type " << packetHeader.typeTag << " from emotibit " << deviceId;
+		ofLogNotice("ofApp") << "Packet found of type " << packetHeader.typeTag << " from emotibit " << deviceId;
 		//Add streams to plot if data is detected and not already added
 		if (packetHeader.typeTag.compare(EmotiBitPacket::TypeTag::THERMOPILE) == 0 && typeTagIndexes.find(EmotiBitPacket::TypeTag::THERMOPILE) == typeTagIndexes.end())
 		{
