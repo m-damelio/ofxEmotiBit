@@ -9,7 +9,7 @@
 
 #include <unordered_set>
 #include <atomic>
-
+#include <queue>
 // ToDo: Extend code to work with Android
 #include "ofMain.h"
 #include "ofxNetwork.h"
@@ -20,17 +20,40 @@
 
 using namespace EmotiBit;
 
+
+
 class EmotibitInfo
 {
 public:
-	EmotibitInfo(string ip = "", bool isAvailable = false, uint64_t lastSeen = ofGetElapsedTimeMillis()) :
-		ip(ip), isAvailable(isAvailable), lastSeen(lastSeen) {}
+	enum class PowerMode {
+		HIBERNATE,
+		WIRELESS_OFF,					// fully shutdown wireless
+		MAX_LOW_POWER,	// data not sent, time-syncing accuracy low
+		LOW_POWER,			// data not sent, time-syncing accuracy high
+		NORMAL_POWER,				// data sending, time-syncing accuracy high
+		length
+	};
+
+	EmotibitInfo(string ip = "", bool isAvailable = false, uint64_t lastSeen = ofGetElapsedTimeMillis(), bool isRecording = false, PowerMode currentPowerMode = PowerMode::LOW_POWER,  string currentBatteryStatus = "0", bool isSelected = false, int clippingCount = 0, int overflowCount = 0, bool showPlot = false, bool isConnected = false, bool userWantsToConnect = false) :
+		ip(ip), isAvailable(isAvailable), lastSeen(lastSeen), isRecording(isRecording), currentPowerMode(currentPowerMode), currentBatteryStatus(currentBatteryStatus), isSelected(isSelected), clippingCount(clippingCount), overflowCount(overflowCount), showPlot(showPlot), isConnected(isConnected), userWantsToConnect(userWantsToConnect) {}
 	string ip;
 	bool isAvailable;
 	uint64_t lastSeen;
+	string currentBatteryStatus;
+	PowerMode currentPowerMode;
+	int clippingCount;
+	int overflowCount;
+	string recordingFileName;
+	//For Ui state handling
+	bool showPlot;
+	bool isRecording;
+	bool isSelected;
+	bool isConnected;
+	bool userWantsToConnect;
 	// Additional parameters like Name, Fs etc can be stored in this struct
 	// ToDo: Consider if a copy/assignment constructor is needed
 };
+
 
 class EmotiBitWiFiHost
 {
@@ -189,7 +212,8 @@ public:
 		bool stopReceivingData = false;
 
 	};
-	unordered_map<string, std::unique_ptr<DeviceDataConnection>> deviceDataConnections;
+	unordered_map<string, std::shared_ptr<DeviceDataConnection>> deviceDataConnections;
+
 	std::mutex deviceConnectionsMutex;
 
 	std::thread* keepAliveThread;
@@ -208,6 +232,10 @@ public:
 	void processKeepAliveThread();
 	void processAdvertisingThread2();
 	int8_t processAdvertising2(vector<string>& infoPackets);
+	std::unordered_map<std::string, EmotibitInfo>& getDiscoveredEmotibitsPointer();
+
+
+
 #pragma endregion
 
 };

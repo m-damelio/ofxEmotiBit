@@ -290,6 +290,7 @@ public:
 
 	bool _recording = false;
 	EmotiBitTestingHelper _testingHelper;
+	/*
 	enum class PowerMode {
 		HIBERNATE,
 		WIRELESS_OFF,					// fully shutdown wireless
@@ -298,7 +299,8 @@ public:
 		NORMAL_POWER,				// data sending, time-syncing accuracy high
 		length
 	};
-	PowerMode _powerMode = PowerMode::LOW_POWER;
+	*/
+	EmotibitInfo::PowerMode _powerMode = EmotibitInfo::PowerMode::LOW_POWER;
 
 	// ToDo: generalize patchboard management
 	PatchboardXml oscPatchboard;
@@ -318,14 +320,12 @@ public:
 	void drawNewGui();
 	void centeredText(const std::string& text, float columWidth);
 	void drawOscilloscopes2(const string& deviceId);
-	void processSlowResponseMessage2(string packet);
-	void processSlowResponseMessage2(vector<string> splitPacket);
 	void processModePacket(const string& deviceId, vector<string> splitPacket);
 	void processSlowResponseMessage2(const string& deviceId, const vector<string>& splitPacket);
 	
 	void updateDeviceList2();
 	bool uniqueIdUsed(string idToCheck);
-	const char* stringifyPowerMode(PowerMode modeToStringify);
+	const char* stringifyPowerMode(EmotibitInfo::PowerMode modeToStringify);
 	void connectToDevice(const string& deviceId);
 	void clearOscilloscopes(const string& deviceId);
 	void processAperiodicData2(const string& deviceId, std::string signalId, std::vector<float> data);
@@ -341,28 +341,6 @@ public:
 
 	bool showOsc;
 
-	class AdvancedEmotibitInfo : public EmotibitInfo
-	{
-		
-	public:
-		//BAse-Constructor
-		AdvancedEmotibitInfo(string ip = "", bool isAvailable = false, uint64_t lastSeen = ofGetElapsedTimeMillis(), bool isRecording = false, PowerMode currentPowerMode = PowerMode::LOW_POWER, string currentBatteryStatus = "0", bool isSelected = false, int clippingCount = 0, int overflowCount = 0, bool showPlot = false, bool isConnected = false, bool userWantsToConnect = false)
-			:EmotibitInfo(ip, isAvailable, lastSeen), isRecording(isRecording), currentPowerMode(currentPowerMode), currentBatteryStatus(currentBatteryStatus), isSelected(isSelected), clippingCount(clippingCount), overflowCount(overflowCount), showPlot(showPlot), isConnected(isConnected), userWantsToConnect(userWantsToConnect) {}
-		//Constructor from given EmotibitInfo
-		AdvancedEmotibitInfo(const EmotibitInfo& emotibitInfo, bool isRecording = false, PowerMode currentPowerMode = PowerMode::LOW_POWER, string currentBatteryStatus = "?%", bool isSelected = false, int clippingCount = 0, int overflowCount = 0, bool showPlot = false, bool isConnected = false, bool userWantsToConnect = false)
-			:EmotibitInfo(emotibitInfo.ip, emotibitInfo.isAvailable, emotibitInfo.lastSeen), isRecording(isRecording), currentPowerMode(currentPowerMode), currentBatteryStatus(currentBatteryStatus), isSelected(isSelected),clippingCount(clippingCount), overflowCount(overflowCount), showPlot(showPlot), isConnected(isConnected), userWantsToConnect(userWantsToConnect) {}
-		PowerMode currentPowerMode;
-		string currentBatteryStatus;
-		int clippingCount;
-		int overflowCount;
-		string recordingFileName;
-		//For Ui state handling
-		bool showPlot; 
-		bool isRecording;
-		bool isSelected;
-		bool isConnected;
-		bool userWantsToConnect;
-	};
 	class OscilloscopePlotData
 	{
 	public:
@@ -375,8 +353,7 @@ public:
 		vector<vector<vector<float>>> yLims;
 		vector<vector<float>> minYSpans;
 	};
-	unordered_map<string, EmotibitInfo> discoveredDevices;
-	unordered_map<string, AdvancedEmotibitInfo> discoveredDevicesInfo;
+	unordered_map<string, EmotibitInfo>& discoveredDevices = emotiBitWiFi.getDiscoveredEmotibitsPointer();
 	unordered_map<string, OscilloscopePlotData> devicePlots;
 
 	const char* GUI_STRING_MAX_LOW_POWER = "Max low power";
@@ -386,6 +363,9 @@ public:
 
 	const float columnWidth = 150.0f;
 	ImVec2 textBoxSize = ImVec2(100, 20);
+
+	bool stopProcessingThread = false;
+	std::thread* processingThread;
 
 	 
 };

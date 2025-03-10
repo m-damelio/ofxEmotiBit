@@ -10,10 +10,6 @@ EmotiBitWiFiHost::~EmotiBitWiFiHost()
 	stopAdvertisingThread = true;
 	advertisingThread->join();
 	delete(advertisingThread);
-
-	stopKeepAliveThread = true;
-	keepAliveThread->join();
-	delete(keepAliveThread);
 }
 
 int8_t EmotiBitWiFiHost::begin()
@@ -1222,15 +1218,19 @@ void EmotiBitWiFiHost::updateDataThread2()
 
 void EmotiBitWiFiHost::updateData2()
 {
-	std::lock_guard<std::mutex> lock(deviceConnectionsMutex);
+	unordered_map<string, std::shared_ptr<DeviceDataConnection>> localConnections;
+	{
+		std::lock_guard<std::mutex> lock(deviceConnectionsMutex);
+		localConnections = deviceDataConnections;
+	}
 
-	for (auto& it : deviceDataConnections)
+	for (auto& it : localConnections)
 	{
 		string deviceId = it.first;
 		auto &conn = it.second;
-		ofLogNotice("EmotiBitWiFiHost") << "Trying to update data for " << deviceId.c_str() << " ...";
+		//ofLogNotice("EmotiBitWiFiHost") << "Trying to update data for " << deviceId.c_str() << " ...";
 		if (conn->stopReceivingData) continue;
-		ofLogNotice("EmotiBitWiFiHost") << "Updating data because stopReceiveData = " << conn->stopReceivingData;
+		//ofLogNotice("EmotiBitWiFiHost") << "Updating data because stopReceiveData = " << conn->stopReceivingData;
 		string message;
 		dataCxnMutex.lock();
 		readUdp(conn -> dataCxn, message, "");
@@ -1514,6 +1514,7 @@ int8_t EmotiBitWiFiHost::processAdvertising2(vector<string>& infoPackets)
 					}
 					else
 					{
+						ofLogNotice("EmotiBitWiFiHost") << packet.c_str() << endl;
 						infoPackets.push_back(packet);
 					}
 				}
@@ -1565,4 +1566,11 @@ int8_t EmotiBitWiFiHost::processAdvertising2(vector<string>& infoPackets)
 	discoveredEmotibitsMutex.unlock();
 	return SUCCESS;
 }
+//With this one can directly manipulate the discoveredDevices 
+std::unordered_map<std::string, EmotibitInfo>& EmotiBitWiFiHost::getDiscoveredEmotibitsPointer()
+{
+	std::lock_guard<std::mutex> lock(discoveredEmotibitsMutex);
+	return _discoveredEmotibits;
+}
+
 #pragma endregion 
