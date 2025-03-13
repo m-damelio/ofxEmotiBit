@@ -329,6 +329,7 @@ public:
 	void connectToDevice(const string& deviceId);
 	void clearOscilloscopes(const string& deviceId);
 	void processAperiodicData2(const string& deviceId, std::string signalId, std::vector<float> data);
+	void setupOscilloscopes2();
 
 	int selectedTimeSlot;
 	int customTimeSlot;
@@ -367,6 +368,5 @@ public:
 	bool stopProcessingThread = false;
 	std::thread* processingThread;
 
-	 
 };
 

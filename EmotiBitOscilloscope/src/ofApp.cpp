@@ -140,8 +140,6 @@ void ofApp::resetIndexMapping()
 	}
 }
 
-
-
 void ofApp::addDataStream(std::string typetag)
 {
 	if (typeTagIndexes.find(typetag) == typeTagIndexes.end())
@@ -173,7 +171,6 @@ void ofApp::addDataStream(std::string typetag)
 		resetScopePlot(w, s);
 	}
 }
-
 
 void ofApp::removeDataStream(std::string typetag)
 {
@@ -482,8 +479,6 @@ void ofApp::dragEvent(ofDragInfo dragInfo) {
 
 }
 #pragma region EmotiBitStuff
-
-
 
 void ofApp::recordButtonPressed(bool & recording) {
 	if (recording) {
@@ -1384,7 +1379,6 @@ void ofApp::updateTypeTagList()
 	}
 }
 
-
 void ofApp::setupOscilloscopes() 
 {
 	// read the patchboard file
@@ -1738,7 +1732,6 @@ void ofApp::drawOscilloscopes()
 
 }
 
-
 string ofApp::loadTextFile(string filePath)
 {
 	ofFile commSettingsFile(ofToDataPath(filePath));
@@ -1856,7 +1849,7 @@ void ofApp::setup(){
 	}
 
 	newGui.setup();
-	setupOscilloscopes();
+	setupOscilloscopes2();
 
 	selectedTimeSlot = 5;
 	customTimeSlot = 5;
@@ -1867,6 +1860,34 @@ void ofApp::setup(){
 	//ofSetLogLevel(OF_LOG_FATAL_ERROR);
 }
 
+void ofApp::setupOscilloscopes2()
+{
+	// read the patchboard file
+	if (patchboard.loadFile(ofToDataPath("inputSettings.xml")))
+	{
+		ofLog(OF_LOG_NOTICE, "PatchBoard succesfully loaded");
+	}
+	else
+	{
+		ofLog(OF_LOG_NOTICE, "PatchBoard File Not Found!");
+		while (1);
+	}
+	ofFile scopeSettingsFile(ofToDataPath("ofxOscilloscopeSettings.xml"));
+	// check if oscilloscope settings file exists
+	if (scopeSettingsFile.exists())
+	{
+		scopeWins = ofxMultiScope::loadScopeSettings();
+	}
+	else
+	{
+		ofLog(OF_LOG_NOTICE, "Scope Settings File Not Found!");
+		while (1);
+	}
+	plotIds = ofxMultiScope::getPlotIds();
+	updatePlotAttributeLists();
+	updateTypeTagList();
+	initMetaDataBuffers();
+}
 void ofApp::draw() {
 	newGui.begin();
 	drawNewGui();
@@ -2242,7 +2263,6 @@ void ofApp::updateDeviceList2()
 			devicePlots[deviceId] = OscilloscopePlotData(scopeWins, bufferSizes, dataCounts, dataFreqs, yLims, minYSpans);
 		}
 	}
-	//Removal of stale emotibits from discoveredDevicesInfo 
 
 }
 
@@ -2360,6 +2380,13 @@ void ofApp::processSlowResponseMessage2(const string& deviceId, const vector<str
 		}
 		else
 		{
+			/*
+			ofLogNotice("PacketHeader") << "Header type: " << packetHeader.typeTag << " (length: " << packetHeader.typeTag.size() << ")";
+			for (size_t i = 0; i < packetHeader.typeTag.size(); i++)
+			{
+				ofLogNotice("PacketHeaderTTBytes") << "PacketHeaderTypetag[" << i << "] = " << int(packetHeader.typeTag[i]);
+			}
+			*/
 			//Process non plotting messages
 			if (packetHeader.typeTag.compare(EmotiBitPacket::TypeTag::BATTERY_VOLTAGE) == 0)
 			{
@@ -2446,6 +2473,7 @@ void ofApp::processAperiodicData2(const string& deviceId, std::string signalId, 
 		}
 	}
 }
+
 void ofApp::processModePacket(const string& deviceId, vector<string> splitPacket)
 {
 	auto it = discoveredDevices.find(deviceId);
@@ -2463,7 +2491,7 @@ void ofApp::processModePacket(const string& deviceId, vector<string> splitPacket
 	{
 		if (value.compare(EmotiBitPacket::TypeTag::RECORD_BEGIN) == 0)
 		{
-			deviceInfos.isRecording = true;
+			discoveredDevices[deviceId].isRecording = true;
 			// See if we got a filename for the file we're recording to
 			if (pos + 1 < splitPacket.size())
 			{
@@ -2471,56 +2499,65 @@ void ofApp::processModePacket(const string& deviceId, vector<string> splitPacket
 				if (filename.size() > 4 && filename.substr(filename.size() - 4, 4).compare(".csv") == 0)
 				{
 					_testingHelper.updateSdCardFilename(filename);
-					deviceInfos.recordingFileName = filename;
+					discoveredDevices[deviceId].recordingFileName = filename;
 				}
 				else
 				{
-					deviceInfos.recordingFileName = GUI_STRING_RECORDING;
+					discoveredDevices[deviceId].recordingFileName = GUI_STRING_RECORDING;
 				}
 			}
 		}
 		else if (value.compare(EmotiBitPacket::TypeTag::RECORD_END) == 0)
 		{
-			deviceInfos.isRecording = false;
+			discoveredDevices[deviceId].isRecording = false;
 		}
 	}
 
 	if (EmotiBitPacket::getPacketKeyedValue(splitPacket, EmotiBitPacket::PayloadLabel::POWER_STATUS, value) > -1)
 	{
+		value = value.substr(0, 2);
+		
 		if (value.compare(EmotiBitPacket::TypeTag::MODE_NORMAL_POWER) == 0)
 		{
-			deviceInfos.currentPowerMode = EmotibitInfo::PowerMode::NORMAL_POWER;
+			discoveredDevices[deviceId].currentPowerMode = EmotibitInfo::PowerMode::NORMAL_POWER;
 		}
 		else if (value.compare(EmotiBitPacket::TypeTag::MODE_LOW_POWER) == 0)
 		{
-			deviceInfos.currentPowerMode = EmotibitInfo::PowerMode::LOW_POWER;
+			discoveredDevices[deviceId].currentPowerMode = EmotibitInfo::PowerMode::LOW_POWER;
 		}
 		else if (value.compare(EmotiBitPacket::TypeTag::MODE_MAX_LOW_POWER) == 0)
 		{
-			deviceInfos.currentPowerMode = EmotibitInfo::PowerMode::MAX_LOW_POWER;
+			discoveredDevices[deviceId].currentPowerMode = EmotibitInfo::PowerMode::MAX_LOW_POWER;
 		}
 		else if (value.compare(EmotiBitPacket::TypeTag::MODE_WIRELESS_OFF) == 0)
 		{
-			deviceInfos.currentPowerMode = EmotibitInfo::PowerMode::WIRELESS_OFF;
+			discoveredDevices[deviceId].currentPowerMode = EmotibitInfo::PowerMode::WIRELESS_OFF;
 			emotiBitWiFi.disconnect2(deviceId);
 		}
 		else if (value.compare(EmotiBitPacket::TypeTag::MODE_HIBERNATE) == 0)
 		{
-			deviceInfos.currentPowerMode = EmotibitInfo::PowerMode::HIBERNATE;
+			discoveredDevices[deviceId].currentPowerMode = EmotibitInfo::PowerMode::HIBERNATE;
 			emotiBitWiFi.disconnect2(deviceId);
+		}
+		else
+		{
+			ofLogNotice("ofApp") << "no comparison was valid" << endl;
 		}
 	}
 }
+
 void ofApp::centeredText(const std::string& text, float columWidth) {
 	ImVec2 textSize = ImGui::CalcTextSize(text.c_str());
 	float textOffsetX = (columWidth - textSize.x) * 0.5f;
 	ImGui::SetCursorPosX(ImGui::GetCursorPosX() + textOffsetX);
 	ImGui::Text("%s", text.c_str());
 	};
+
 bool ofApp::uniqueIdUsed(string idToCheck)
 {
 	return (uniqueIds.find(idToCheck) != uniqueIds.end());
 }
+
 const char* ofApp::stringifyPowerMode(EmotibitInfo::PowerMode modeToStringify)
 {
 	switch (modeToStringify) {
@@ -2544,4 +2581,5 @@ const char* ofApp::stringifyPowerMode(EmotibitInfo::PowerMode modeToStringify)
 			break;
 	}
 }
+
 #pragma endregion

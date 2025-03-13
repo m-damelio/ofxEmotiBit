@@ -1,13 +1,13 @@
 <multiScope>
     <x>0.000000000</x>
     <y>55.000000000</y>
-    <width>750.000000000</width>
-    <height>825.000000000</height>
+    <width>375.000000000</width>
+    <height>425.000000000</height>
     <legendFontName>verdanab.ttf</legendFontName>
-    <legendFontSize>11</legendFontSize>
+    <legendFontSize>8</legendFontSize>
     <axesFontName>verdana.ttf</axesFontName>
-    <axesFontSize>10</axesFontSize>
-    <plotLineWidth>3</plotLineWidth>
+    <axesFontSize>5</axesFontSize>
+    <plotLineWidth>1</plotLineWidth>
     <scope>
         <samplingFrequency>25.000000000</samplingFrequency>
         <timeWindow>10.000000000</timeWindow>
@@ -106,14 +106,14 @@
     </scope>
 </multiScope>
 <multiScope>		
-	<x>750.000000000</x>
+	<x>375.000000000</x>
     <y>55.000000000</y>
-    <width>750.000000000</width>
-    <height>825.000000000</height>    <legendFontName>verdanab.ttf</legendFontName>
-    <legendFontSize>11</legendFontSize>
+    <width>375.000000000</width>
+    <height>425.000000000</height>    <legendFontName>verdanab.ttf</legendFontName>
+    <legendFontSize>8</legendFontSize>
     <axesFontName>verdana.ttf</axesFontName>
-    <axesFontSize>10</axesFontSize>
-    <plotLineWidth>3</plotLineWidth>
+    <axesFontSize>5</axesFontSize>
+    <plotLineWidth>1</plotLineWidth>
 	<scope>
         <samplingFrequency>25.00000000</samplingFrequency>
         <timeWindow>10.000000000</timeWindow>

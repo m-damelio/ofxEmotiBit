@@ -88,7 +88,6 @@ bool EmotiBitWiFiHost::isInNetworkIncludeList(string ipAddress) {
 	return out;
 }
 
-
 void EmotiBitWiFiHost::getAvailableNetworks() {
 	vector<string> ips;
 	auto currentavailableNetworks = availableNetworks;
@@ -817,8 +816,6 @@ unordered_map<string, EmotibitInfo> EmotiBitWiFiHost::getdiscoveredEmotibits()
 	return output;
 }
 
-
-
 string EmotiBitWiFiHost::ofGetTimestampString(const string& timestampFormat)
 {
 	std::stringstream str;
@@ -1514,7 +1511,6 @@ int8_t EmotiBitWiFiHost::processAdvertising2(vector<string>& infoPackets)
 					}
 					else
 					{
-						ofLogNotice("EmotiBitWiFiHost") << packet.c_str() << endl;
 						infoPackets.push_back(packet);
 					}
 				}
@@ -1566,6 +1562,7 @@ int8_t EmotiBitWiFiHost::processAdvertising2(vector<string>& infoPackets)
 	discoveredEmotibitsMutex.unlock();
 	return SUCCESS;
 }
+
 //With this one can directly manipulate the discoveredDevices 
 std::unordered_map<std::string, EmotibitInfo>& EmotiBitWiFiHost::getDiscoveredEmotibitsPointer()
 {
