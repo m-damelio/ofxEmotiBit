@@ -1,3 +1,5 @@
+WIP: Project to change the ui of emotibit oscilloscope and receive data for multiple emotibits simultaneously.
+
 # ofxEmotiBit
 Software code for the EmotiBit. 
 If you just want to visualize and parse data from the EmotiBit (for Windows/ macOS), you can simply download the software directly in [releases](https://github.com/EmotiBit/ofxEmotiBit/releases).
@@ -41,6 +43,7 @@ The addons are placed in the `OF_ROOT/addons` folder and it's structure is shown
 
 
 #### Download the following Openframeworks addons 
+- **ofxImGui:** [GitHub repository](https://github.com/jvcleave/ofxImGui)
 - **ofxNetworkUtils:** [GitHub repository](https://github.com/bakercp/ofxNetworkUtils)
 - **ofxOscilloscope:** [GitHub repository](https://github.com/produceconsumerobot/ofxOscilloscope/)
 - **ofxThreadedLogger:** [GitHub repository](https://github.com/produceconsumerobot/ofxThreadedLogger)
@@ -86,6 +89,8 @@ cd ..
 git clone git@github.com:bakercp/ofxIO.git
 cd ofxIO
 git checkout stable
+cd ..
+git clone git@github.com:jvcleave/ofxImGui.git
 cd ..
 ```
 
