@@ -330,6 +330,7 @@ public:
 	void clearOscilloscopes(int indexToClear);
 	void processAperiodicData2(const string& deviceId, std::string signalId, std::vector<float> data);
 	void setupOscilloscopes2();
+	void setTypeTagPlotAttributes2();
 	void updatePlotAttributeLists2(std::string settingsFile = "ofxOscilloscopeSettings.xml");
 	void updateTypeTagList2();
 	void initMetaDataBuffers2();
@@ -347,25 +348,12 @@ public:
 
 	bool showOsc;
 
-	class OscilloscopePlotData
-	{
-	public:
-		OscilloscopePlotData(vector<ofxMultiScope> oscPlot = {}, vector<vector<vector<int>>> bufferSizes = {}, vector<vector<vector<int>>> dataCounts = {}, vector<vector<vector<float>>> dataFreqs = {}, vector<vector<vector<float>>> yLims = {}, vector<vector<float>> minYSpans = {})
-		: oscPlot(oscPlot), bufferSizes(bufferSizes), dataCounts(dataCounts), dataFreqs(dataFreqs), yLims(yLims), minYSpans(minYSpans) {}
-		vector<ofxMultiScope> oscPlot;
-		vector<vector<vector<int>>> bufferSizes;
-		vector<vector<vector<int>>> dataCounts;
-		vector<vector<vector<float>>> dataFreqs;
-		vector<vector<vector<float>>> yLims;
-		vector<vector<float>> minYSpans;
-	};
 	unordered_map<string, EmotibitInfo>& discoveredDevices = emotiBitWiFi.getDiscoveredEmotibitsPointer();
-	//unordered_map<string, OscilloscopePlotData> devicePlots;
 
 	const char* GUI_STRING_MAX_LOW_POWER = "Max low power";
 	const char* GUI_STRING_UNKNOWN_MODE = "Unknown mode";
 
-	std::string emotiBitDeviceToVisualize;
+	//std::string emotiBitDeviceToVisualize;
 
 	const float columnWidth = 150.0f;
 	ImVec2 textBoxSize = ImVec2(100, 20);

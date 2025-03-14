@@ -1827,7 +1827,7 @@ void ofApp::setup(){
 	//ofBackground(255, 255, 255);
 	//SoftwareVersionChecker::checkLatestVersion();
 	ofSetLogLevel(OF_LOG_NOTICE);
-	setTypeTagPlotAttributes();
+	setTypeTagPlotAttributes2();
 
 	string commSettings = loadTextFile(commSettingsFile);
 	emotiBitWiFi.parseCommSettings(commSettings);
@@ -1909,6 +1909,37 @@ void ofApp::setupOscilloscopes2()
 	initMetaDataBuffers2();
 }
 
+void ofApp::setTypeTagPlotAttributes2()
+{
+	// ToDo: Add attributes for all streams for refactor
+	// Note:: THERM plot attributes only live in code. we should move it to the XML file some day
+	{
+		// Add plot attributes for THERMOPILE data
+		typeTagPlotAttr attr;
+		attr.plotName = "THERM";
+		attr.plotColor = ofColor(239, 97, 82);
+		// ToDo: someday, we can even consider a standard layout considering even plot number p -> {w,s,p}
+		std::vector<int> sIdx = { 1, 3 };  // {window, scope}
+		attr.scopeIdx = sIdx;
+		typeTagPlotAttributes0.emplace(EmotiBitPacket::TypeTag::THERMOPILE, attr);
+		typeTagPlotAttributes1.emplace(EmotiBitPacket::TypeTag::THERMOPILE, attr);
+		typeTagPlotAttributes2.emplace(EmotiBitPacket::TypeTag::THERMOPILE, attr);
+		typeTagPlotAttributes3.emplace(EmotiBitPacket::TypeTag::THERMOPILE, attr);
+	}
+
+	{
+		// Plot Attributes for TEMP1 data
+		typeTagPlotAttr attr;
+		attr.plotName = "TEMP1";
+		attr.plotColor = ofColor(234, 174, 68);
+		std::vector<int> sIdx = { 1, 3 };  // {window, scope}
+		attr.scopeIdx = sIdx;
+		typeTagPlotAttributes0.emplace(EmotiBitPacket::TypeTag::TEMPERATURE_1, attr);
+		typeTagPlotAttributes1.emplace(EmotiBitPacket::TypeTag::TEMPERATURE_1, attr);
+		typeTagPlotAttributes2.emplace(EmotiBitPacket::TypeTag::TEMPERATURE_1, attr);
+		typeTagPlotAttributes3.emplace(EmotiBitPacket::TypeTag::TEMPERATURE_1, attr);
+	}
+}
 void ofApp::updatePlotAttributeLists2(std::string settingsFile)
 {
 	//same as updatePlotAttributeList but for the variables variableName0-3 (e.g. samplingFreqs0, samplingFreqs1, samlingFreqs2, samlingFreqs3 instead of only samplingFreqs
@@ -1965,6 +1996,8 @@ void ofApp::updatePlotAttributeLists2(std::string settingsFile)
 
 		scopeSettings.popTag(); // multiScope m
 	}
+
+	scopeSettings.loadFile(settingsFile);
 	nMultiScopes = scopeSettings.getNumTags("multiScope");
 	samplingFreqs1.resize(nMultiScopes);
 	minYSpans1.resize(nMultiScopes);
@@ -2015,6 +2048,8 @@ void ofApp::updatePlotAttributeLists2(std::string settingsFile)
 
 		scopeSettings.popTag(); // multiScope m
 	}
+
+	scopeSettings.loadFile(settingsFile);
 	nMultiScopes = scopeSettings.getNumTags("multiScope");
 	samplingFreqs2.resize(nMultiScopes);
 	minYSpans2.resize(nMultiScopes);
@@ -2058,6 +2093,8 @@ void ofApp::updatePlotAttributeLists2(std::string settingsFile)
 		}
 		scopeSettings.popTag(); // multiScope m
 	}
+
+	scopeSettings.loadFile(settingsFile);
 	nMultiScopes = scopeSettings.getNumTags("multiScope");
 	samplingFreqs3.resize(nMultiScopes);
 	minYSpans3.resize(nMultiScopes);
@@ -2166,7 +2203,7 @@ void ofApp::updateTypeTagList2()
 			}
 			scopeTypeTagList.push_back(plotTypeTagList);
 		}
-		typeTags.push_back(scopeTypeTagList);
+		typeTags1.push_back(scopeTypeTagList);
 	}
 
 	// Create an index mapping for each type tag
@@ -2199,7 +2236,7 @@ void ofApp::updateTypeTagList2()
 			}
 			scopeTypeTagList.push_back(plotTypeTagList);
 		}
-		typeTags.push_back(scopeTypeTagList);
+		typeTags2.push_back(scopeTypeTagList);
 	}
 
 	// Create an index mapping for each type tag
@@ -2232,7 +2269,7 @@ void ofApp::updateTypeTagList2()
 			}
 			scopeTypeTagList.push_back(plotTypeTagList);
 		}
-		typeTags.push_back(scopeTypeTagList);
+		typeTags3.push_back(scopeTypeTagList);
 	}
 
 	// Create an index mapping for each type tag
@@ -2240,7 +2277,7 @@ void ofApp::updateTypeTagList2()
 		for (int s = 0; s < typeTags3.at(w).size(); s++) {
 			for (int p = 0; p < typeTags3.at(w).at(s).size(); p++) {
 				vector<int> indexes{ w, s, p };
-				typeTagIndexes3.emplace(typeTags.at(w).at(s).at(p), indexes);
+				typeTagIndexes3.emplace(typeTags3.at(w).at(s).at(p), indexes);
 			}
 		}
 	}
@@ -2534,7 +2571,7 @@ void ofApp::drawNewGui()
 					{
 						if (selectedIndices[j] != index)
 						{
-							//If a different emotibit in this dropdown was selected, take name from name list and turn off plot showing flag
+							//If a different emotibit in this dropdown was selected, take name from name list and turn off plot showing flag, change oscilloscopeIndex to -1 (which means this device will not be plotted to oscilloscope 1,2,3 or 4)
 							if (selectedIndices[j] != -1)
 							{
 								const std::string& oldSelection = names[selectedIndices[j]];
@@ -2636,6 +2673,7 @@ void ofApp::connectToDevice(const string& deviceId)
 
 void ofApp::clearOscilloscopes(int indexToClear)
 {
+	ofLogNotice("ofApp") << "Clearing of oscilloscopes was called" << endl;
 	vector<ofxMultiScope>* oscilloscopeToClear = nullptr;
 	switch (indexToClear)
 	{
@@ -2684,12 +2722,14 @@ void ofApp::processSlowResponseMessage2(const string& deviceId, const vector<str
 	vector<vector<vector<int>>>* dataCountsOfPlotI = nullptr;
 	vector<vector<float>>* minYSpansOfPlotI = nullptr;
 	vector<vector<vector<float>>>* yLimsOfPlotI = nullptr;
+	unordered_map<string, vector<int>>* typeTagIndexesOfPlotI = nullptr;
+	vector<vector<vector<string>>>* typeTagsOfPlotI = nullptr;
 	switch (itPlotIndex->second)
 	{
-		case 0: oscilloscopeToPlotTo = &scopeWins0; bufferSizesOfPlotI = &bufferSizes0; dataCountsOfPlotI = &dataCounts0; minYSpansOfPlotI = &minYSpans0; yLimsOfPlotI = &yLims0; break;
-		case 1: oscilloscopeToPlotTo = &scopeWins1; bufferSizesOfPlotI = &bufferSizes1; dataCountsOfPlotI = &dataCounts1; minYSpansOfPlotI = &minYSpans1; yLimsOfPlotI = &yLims1; break;
-		case 2: oscilloscopeToPlotTo = &scopeWins2; bufferSizesOfPlotI = &bufferSizes2; dataCountsOfPlotI = &dataCounts2; minYSpansOfPlotI = &minYSpans2; yLimsOfPlotI = &yLims2; break;
-		case 3: oscilloscopeToPlotTo = &scopeWins3; bufferSizesOfPlotI = &bufferSizes3; dataCountsOfPlotI = &dataCounts3; minYSpansOfPlotI = &minYSpans3; yLimsOfPlotI = &yLims3; break;
+		case 0: oscilloscopeToPlotTo = &scopeWins0; bufferSizesOfPlotI = &bufferSizes0; dataCountsOfPlotI = &dataCounts0; minYSpansOfPlotI = &minYSpans0; yLimsOfPlotI = &yLims0; typeTagIndexesOfPlotI = &typeTagIndexes0; typeTagsOfPlotI = &typeTags0; break;
+		case 1: oscilloscopeToPlotTo = &scopeWins1; bufferSizesOfPlotI = &bufferSizes1; dataCountsOfPlotI = &dataCounts1; minYSpansOfPlotI = &minYSpans1; yLimsOfPlotI = &yLims1; typeTagIndexesOfPlotI = &typeTagIndexes0; typeTagsOfPlotI = &typeTags0; break;
+		case 2: oscilloscopeToPlotTo = &scopeWins2; bufferSizesOfPlotI = &bufferSizes2; dataCountsOfPlotI = &dataCounts2; minYSpansOfPlotI = &minYSpans2; yLimsOfPlotI = &yLims2; typeTagIndexesOfPlotI = &typeTagIndexes0; typeTagsOfPlotI = &typeTags0; break;
+		case 3: oscilloscopeToPlotTo = &scopeWins3; bufferSizesOfPlotI = &bufferSizes3; dataCountsOfPlotI = &dataCounts3; minYSpansOfPlotI = &minYSpans3; yLimsOfPlotI = &yLims3; typeTagIndexesOfPlotI = &typeTagIndexes0; typeTagsOfPlotI = &typeTags0; break;
 		default: return; //No oscilloscopeIndex assigned in OscilloscopeControl 
 	}
 	
@@ -2707,23 +2747,25 @@ void ofApp::processSlowResponseMessage2(const string& deviceId, const vector<str
 		testString = packetHeader.typeTag;
 		ofLogNotice("ofApp") << "Packet found of type " << packetHeader.typeTag << " from emotibit " << deviceId;
 		//Add streams to plot if data is detected and not already added
-		if (packetHeader.typeTag.compare(EmotiBitPacket::TypeTag::THERMOPILE) == 0 && typeTagIndexes.find(EmotiBitPacket::TypeTag::THERMOPILE) == typeTagIndexes.end())
+		if (packetHeader.typeTag.compare(EmotiBitPacket::TypeTag::THERMOPILE) == 0 && (*typeTagIndexesOfPlotI).find(EmotiBitPacket::TypeTag::THERMOPILE) == (*typeTagIndexesOfPlotI).end())
 		{
 			addDataStream(EmotiBitPacket::TypeTag::THERMOPILE);
 		}
-		if (packetHeader.typeTag.compare(EmotiBitPacket::TypeTag::TEMPERATURE_1) == 0 && typeTagIndexes.find(EmotiBitPacket::TypeTag::TEMPERATURE_1) == typeTagIndexes.end())
+		if (packetHeader.typeTag.compare(EmotiBitPacket::TypeTag::TEMPERATURE_1) == 0 && (*typeTagIndexesOfPlotI).find(EmotiBitPacket::TypeTag::TEMPERATURE_1) == (*typeTagIndexesOfPlotI).end())
 		{
 			addDataStream(EmotiBitPacket::TypeTag::TEMPERATURE_1);
 		}
 
-		auto indexPtr = typeTagIndexes.find(packetHeader.typeTag);
-		if (indexPtr != typeTagIndexes.end())
+		auto indexPtr = (*typeTagIndexesOfPlotI).find(packetHeader.typeTag);
+		if (indexPtr != (*typeTagIndexesOfPlotI).end())
 		{
 			vector<vector<float>> data;
 			int w = indexPtr->second.at(0); //scope window index
 			int s = indexPtr->second.at(1); // scope index
 			int p = indexPtr->second.at(2); //plot index
-			data.resize(typeTags.at(w).at(s).size());
+			data.resize((*typeTagsOfPlotI).at(w).at(s).size());
+
+			ofLogNotice("OfApp:ProcessSlowResponseMessage2") << "Scope Window =  " << w << " and scope index = " << s << " and plot index = " << p;
 
 			vector<string> oscAddresses;
 			vector<ofxOscMessage> oscMessages;
@@ -2779,6 +2821,7 @@ void ofApp::processSlowResponseMessage2(const string& deviceId, const vector<str
 				}
 				if (!isAperiodic)
 				{
+					ofLogNotice("ofApp:ProcessSlowResponseMessage2") << "Data is not aperiodic and will be plotted to " << oscilloscopeIndex.find(deviceId) ->second;
 					(*oscilloscopeToPlotTo).at(w).scopes.at(s).updateData(data);
 				}
 			}
@@ -2823,13 +2866,13 @@ void ofApp::processSlowResponseMessage2(const string& deviceId, const vector<str
 			{
 				for (size_t n = EmotiBitPacket::headerLength; n < splitPacket.size(); n++)
 				{
-					for (size_t w = 0; w < typeTags.size(); w++)
+					for (size_t w = 0; w < (*typeTagsOfPlotI).size(); w++)
 					{
-						for (size_t s = 0; s < typeTags.at(w).size();s++)
+						for (size_t s = 0; s < (*typeTagsOfPlotI).at(w).size();s++)
 						{
-							for (size_t p = 0; p < typeTags.at(w).at(s).size();p++)
+							for (size_t p = 0; p < (*typeTagsOfPlotI).at(w).at(s).size();p++)
 							{
-								if (splitPacket.at(n).compare(typeTags.at(w).at(s).at(p)) == 0)
+								if (splitPacket.at(n).compare((*typeTagsOfPlotI).at(w).at(s).at(p)) == 0)
 								{
 									deviceInfos.clippingCount++;
 								}
@@ -2842,13 +2885,13 @@ void ofApp::processSlowResponseMessage2(const string& deviceId, const vector<str
 			{
 				for (size_t n = EmotiBitPacket::headerLength; n < splitPacket.size(); n++)
 				{
-					for (size_t w = 0; w < typeTags.size(); w++)
+					for (size_t w = 0; w < (*typeTagsOfPlotI).size(); w++)
 					{
-						for (size_t s = 0; s < typeTags.at(w).size();s++)
+						for (size_t s = 0; s < (*typeTagsOfPlotI).at(w).size();s++)
 						{
-							for (size_t p = 0; p < typeTags.at(w).at(s).size();p++)
+							for (size_t p = 0; p < (*typeTagsOfPlotI).at(w).at(s).size();p++)
 							{
-								if (splitPacket.at(n).compare(typeTags.at(w).at(s).at(p)) == 0)
+								if (splitPacket.at(n).compare((*typeTagsOfPlotI).at(w).at(s).at(p)) == 0)
 								{
 									deviceInfos.overflowCount++;
 								}
