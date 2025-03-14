@@ -1876,18 +1876,416 @@ void ofApp::setupOscilloscopes2()
 	// check if oscilloscope settings file exists
 	if (scopeSettingsFile.exists())
 	{
-		scopeWins = ofxMultiScope::loadScopeSettings();
+		scopeWins0 = ofxMultiScope::loadScopeSettings();
+		scopeWins1 = ofxMultiScope::loadScopeSettings();
+		scopeWins2 = ofxMultiScope::loadScopeSettings();
+		scopeWins3 = ofxMultiScope::loadScopeSettings();
+		//This assumes that the width/height of both multiscopes is the same
+		for (int i = 0; i < scopeWins0.size(); i++)
+		{
+			auto position = scopeWins0[i].getPosition();
+			auto position2 = position;
+			position.setX(position.getX() + position.getWidth() * 2);
+			scopeWins1[i].setPosition(position);
+
+			position2.setY(position2.getY() + position2.getHeight());
+			scopeWins2[i].setPosition(position2);
+
+			position.setY(position2.getY());
+			scopeWins3[i].setPosition(position);
+		}
 	}
 	else
 	{
 		ofLog(OF_LOG_NOTICE, "Scope Settings File Not Found!");
 		while (1);
 	}
-	plotIds = ofxMultiScope::getPlotIds();
-	updatePlotAttributeLists();
-	updateTypeTagList();
-	initMetaDataBuffers();
+	plotIds0 = ofxMultiScope::getPlotIds();
+	plotIds1 = ofxMultiScope::getPlotIds();
+	plotIds2 = ofxMultiScope::getPlotIds();
+	plotIds3 = ofxMultiScope::getPlotIds();
+	updatePlotAttributeLists2();
+	updateTypeTagList2();
+	initMetaDataBuffers2();
 }
+
+void ofApp::updatePlotAttributeLists2(std::string settingsFile)
+{
+	//same as updatePlotAttributeList but for the variables variableName0-3 (e.g. samplingFreqs0, samplingFreqs1, samlingFreqs2, samlingFreqs3 instead of only samplingFreqs
+	ofxXmlSettings scopeSettings;
+	scopeSettings.loadFile(settingsFile);
+
+	int nMultiScopes = scopeSettings.getNumTags("multiScope");
+	samplingFreqs0.resize(nMultiScopes);
+	minYSpans0.resize(nMultiScopes);
+	plotNames0.resize(nMultiScopes);
+	plotColors0.resize(nMultiScopes);
+	yLims0.resize(nMultiScopes);
+	for (int m = 0; m < nMultiScopes; m++)
+	{
+		scopeSettings.pushTag("multiScope", m);
+		int nScopes = scopeSettings.getNumTags("scope");
+		samplingFreqs0.at(m).resize(nScopes);
+		minYSpans0.at(m).resize(nScopes);
+		plotNames0.at(m).resize(nScopes);
+		plotColors0.at(m).resize(nScopes);
+		yLims0.at(m).resize(nScopes);
+		for (int s = 0; s < nScopes; s++)
+		{
+			scopeSettings.pushTag("scope", s);
+			//float timeWindow = scopeSettings.getValue("timeWindow", 15.f); // maybe we keep this.
+			float samplingFrequency = scopeSettings.getValue("samplingFrequency", 15.f);
+			float minYSpan = scopeSettings.getValue("minYSpan", 0.f);
+			float yMin = scopeSettings.getValue("yMin", 0.f);
+			float yMax = scopeSettings.getValue("yMax", 0.f);
+			samplingFreqs0.at(m).at(s) = samplingFrequency;
+			minYSpans0.at(m).at(s) = minYSpan;
+			vector<float> yLim = { yMin, yMax };
+			yLims0.at(m).at(s) = yLim;
+			//samplingFreqs-2D vector
+			//minYSpans-2D vector
+			//plotNames-3D vector
+			//plotColors-3D vector
+			//yLims-3D vector
+			int nPlots = scopeSettings.getNumTags("plot");
+			for (int p = 0; p < nPlots; p++) {
+				scopeSettings.pushTag("plot", p);
+				plotNames0.at(m).at(s).push_back(scopeSettings.getValue("plotName", "N/A"));
+				scopeSettings.pushTag("plotColor");
+				plotColors0.at(m).at(s).push_back(ofColor(
+					scopeSettings.getValue("r", 255),
+					scopeSettings.getValue("g", 255),
+					scopeSettings.getValue("b", 255)
+				));
+				scopeSettings.popTag(); // plotColor
+				scopeSettings.popTag(); // plot p
+			}
+			scopeSettings.popTag(); // scope s
+		}
+
+		scopeSettings.popTag(); // multiScope m
+	}
+	nMultiScopes = scopeSettings.getNumTags("multiScope");
+	samplingFreqs1.resize(nMultiScopes);
+	minYSpans1.resize(nMultiScopes);
+	plotNames1.resize(nMultiScopes);
+	plotColors1.resize(nMultiScopes);
+	yLims1.resize(nMultiScopes);
+	for (int m = 0; m < nMultiScopes; m++)
+	{
+		scopeSettings.pushTag("multiScope", m);
+		int nScopes = scopeSettings.getNumTags("scope");
+		samplingFreqs1.at(m).resize(nScopes);
+		minYSpans1.at(m).resize(nScopes);
+		plotNames1.at(m).resize(nScopes);
+		plotColors1.at(m).resize(nScopes);
+		yLims1.at(m).resize(nScopes);
+		for (int s = 0; s < nScopes; s++)
+		{
+			scopeSettings.pushTag("scope", s);
+			//float timeWindow = scopeSettings.getValue("timeWindow", 15.f); // maybe we keep this.
+			float samplingFrequency = scopeSettings.getValue("samplingFrequency", 15.f);
+			float minYSpan = scopeSettings.getValue("minYSpan", 0.f);
+			float yMin = scopeSettings.getValue("yMin", 0.f);
+			float yMax = scopeSettings.getValue("yMax", 0.f);
+			samplingFreqs1.at(m).at(s) = samplingFrequency;
+			minYSpans1.at(m).at(s) = minYSpan;
+			vector<float> yLim = { yMin, yMax };
+			yLims1.at(m).at(s) = yLim;
+			//samplingFreqs-2D vector
+			//minYSpans-2D vector
+			//plotNames-3D vector
+			//plotColors-3D vector
+			//yLims-3D vector
+			int nPlots = scopeSettings.getNumTags("plot");
+			for (int p = 0; p < nPlots; p++) {
+				scopeSettings.pushTag("plot", p);
+				plotNames1.at(m).at(s).push_back(scopeSettings.getValue("plotName", "N/A"));
+				scopeSettings.pushTag("plotColor");
+				plotColors1.at(m).at(s).push_back(ofColor(
+					scopeSettings.getValue("r", 255),
+					scopeSettings.getValue("g", 255),
+					scopeSettings.getValue("b", 255)
+				));
+				scopeSettings.popTag(); // plotColor
+				scopeSettings.popTag(); // plot p
+			}
+			scopeSettings.popTag(); // scope s
+		}
+
+		scopeSettings.popTag(); // multiScope m
+	}
+	nMultiScopes = scopeSettings.getNumTags("multiScope");
+	samplingFreqs2.resize(nMultiScopes);
+	minYSpans2.resize(nMultiScopes);
+	plotNames2.resize(nMultiScopes);
+	plotColors2.resize(nMultiScopes);
+	yLims2.resize(nMultiScopes);
+	for (int m = 0; m < nMultiScopes; m++)
+	{
+		scopeSettings.pushTag("multiScope", m);
+		int nScopes = scopeSettings.getNumTags("scope");
+		samplingFreqs2.at(m).resize(nScopes);
+		minYSpans2.at(m).resize(nScopes);
+		plotNames2.at(m).resize(nScopes);
+		plotColors2.at(m).resize(nScopes);
+		yLims2.at(m).resize(nScopes);
+		for (int s = 0; s < nScopes; s++)
+		{
+			scopeSettings.pushTag("scope", s);
+			float samplingFrequency = scopeSettings.getValue("samplingFrequency", 15.f);
+			float minYSpan = scopeSettings.getValue("minYSpan", 0.f);
+			float yMin = scopeSettings.getValue("yMin", 0.f);
+			float yMax = scopeSettings.getValue("yMax", 0.f);
+			samplingFreqs2.at(m).at(s) = samplingFrequency;
+			minYSpans2.at(m).at(s) = minYSpan;
+			vector<float> yLim = { yMin, yMax };
+			yLims2.at(m).at(s) = yLim;
+			int nPlots = scopeSettings.getNumTags("plot");
+			for (int p = 0; p < nPlots; p++) {
+				scopeSettings.pushTag("plot", p);
+				plotNames2.at(m).at(s).push_back(scopeSettings.getValue("plotName", "N/A"));
+				scopeSettings.pushTag("plotColor");
+				plotColors2.at(m).at(s).push_back(ofColor(
+					scopeSettings.getValue("r", 255),
+					scopeSettings.getValue("g", 255),
+					scopeSettings.getValue("b", 255)
+				));
+				scopeSettings.popTag(); // plotColor
+				scopeSettings.popTag(); // plot p
+			}
+			scopeSettings.popTag(); // scope s
+		}
+		scopeSettings.popTag(); // multiScope m
+	}
+	nMultiScopes = scopeSettings.getNumTags("multiScope");
+	samplingFreqs3.resize(nMultiScopes);
+	minYSpans3.resize(nMultiScopes);
+	plotNames3.resize(nMultiScopes);
+	plotColors3.resize(nMultiScopes);
+	yLims3.resize(nMultiScopes);
+	for (int m = 0; m < nMultiScopes; m++)
+	{
+		scopeSettings.pushTag("multiScope", m);
+		int nScopes = scopeSettings.getNumTags("scope");
+		samplingFreqs3.at(m).resize(nScopes);
+		minYSpans3.at(m).resize(nScopes);
+		plotNames3.at(m).resize(nScopes);
+		plotColors3.at(m).resize(nScopes);
+		yLims3.at(m).resize(nScopes);
+		for (int s = 0; s < nScopes; s++)
+		{
+			scopeSettings.pushTag("scope", s);
+			//float timeWindow = scopeSettings.getValue("timeWindow", 15.f); // maybe we keep this.
+			float samplingFrequency = scopeSettings.getValue("samplingFrequency", 15.f);
+			float minYSpan = scopeSettings.getValue("minYSpan", 0.f);
+			float yMin = scopeSettings.getValue("yMin", 0.f);
+			float yMax = scopeSettings.getValue("yMax", 0.f);
+			samplingFreqs3.at(m).at(s) = samplingFrequency;
+			minYSpans3.at(m).at(s) = minYSpan;
+			vector<float> yLim = { yMin, yMax };
+			yLims3.at(m).at(s) = yLim;
+			//samplingFreqs-2D vector
+			//minYSpans-2D vector
+			//plotNames-3D vector
+			//plotColors-3D vector
+			//yLims-3D vector
+			int nPlots = scopeSettings.getNumTags("plot");
+			for (int p = 0; p < nPlots; p++) {
+				scopeSettings.pushTag("plot", p);
+				plotNames3.at(m).at(s).push_back(scopeSettings.getValue("plotName", "N/A"));
+				scopeSettings.pushTag("plotColor");
+				plotColors3.at(m).at(s).push_back(ofColor(
+					scopeSettings.getValue("r", 255),
+					scopeSettings.getValue("g", 255),
+					scopeSettings.getValue("b", 255)
+				));
+				scopeSettings.popTag(); // plotColor
+				scopeSettings.popTag(); // plot p
+			}
+			scopeSettings.popTag(); // scope s
+		}
+
+		scopeSettings.popTag(); // multiScope m
+	}
+}
+void ofApp::updateTypeTagList2()
+{
+	//same as updateTypeTagList but for 4 instances (e.g. plotIds0-3 instead of only plotIds)
+
+	for (int i = 0; i < plotIds0.size(); i++)// for multiscopes
+	{
+		vector<vector<std::string>> scopeTypeTagList;
+		for (int j = 0; j < plotIds0.at(i).size(); j++) // for scopes
+		{
+			vector<std::string> plotTypeTagList;
+			for (int k = 0; k < plotIds0.at(i).at(j).size(); k++) // for plots
+			{
+				for (auto key = patchboard.patchcords.begin(); key != patchboard.patchcords.end(); key++)
+				{
+					// for each plot plotId, get the typeTag
+					// ToDo: there should be a loop here to go through all map values for a key. In case, the same signal is patched to multiple scopes
+					if (ofToInt(key->second.back()) == plotIds0.at(i).at(j).at(k))
+					{
+						plotTypeTagList.push_back(key->first);
+					}
+				}
+			}
+			scopeTypeTagList.push_back(plotTypeTagList);
+		}
+		typeTags0.push_back(scopeTypeTagList);
+	}
+
+	// Create an index mapping for each type tag
+	for (int w = 0; w < typeTags0.size(); w++) {
+		for (int s = 0; s < typeTags0.at(w).size(); s++) {
+			for (int p = 0; p < typeTags0.at(w).at(s).size(); p++) {
+				vector<int> indexes{ w, s, p };
+				typeTagIndexes0.emplace(typeTags0.at(w).at(s).at(p), indexes);
+			}
+		}
+	}
+
+	for (int i = 0; i < plotIds1.size(); i++)// for multiscopes
+	{
+		vector<vector<std::string>> scopeTypeTagList;
+		for (int j = 0; j < plotIds1.at(i).size(); j++) // for scopes
+		{
+			vector<std::string> plotTypeTagList;
+			for (int k = 0; k < plotIds1.at(i).at(j).size(); k++) // for plots
+			{
+				for (auto key = patchboard.patchcords.begin(); key != patchboard.patchcords.end(); key++)
+				{
+					// for each plot plotId, get the typeTag
+					// ToDo: there should be a loop here to go through all map values for a key. In case, the same signal is patched to multiple scopes
+					if (ofToInt(key->second.back()) == plotIds1.at(i).at(j).at(k))
+					{
+						plotTypeTagList.push_back(key->first);
+					}
+				}
+			}
+			scopeTypeTagList.push_back(plotTypeTagList);
+		}
+		typeTags.push_back(scopeTypeTagList);
+	}
+
+	// Create an index mapping for each type tag
+	for (int w = 0; w < typeTags1.size(); w++) {
+		for (int s = 0; s < typeTags1.at(w).size(); s++) {
+			for (int p = 0; p < typeTags1.at(w).at(s).size(); p++) {
+				vector<int> indexes{ w, s, p };
+				typeTagIndexes1.emplace(typeTags1.at(w).at(s).at(p), indexes);
+			}
+		}
+	}
+
+	for (int i = 0; i < plotIds2.size(); i++)// for multiscopes
+	{
+		vector<vector<std::string>> scopeTypeTagList;
+		for (int j = 0; j < plotIds2.at(i).size(); j++) // for scopes
+		{
+			vector<std::string> plotTypeTagList;
+			for (int k = 0; k < plotIds2.at(i).at(j).size(); k++) // for plots
+			{
+				for (auto key = patchboard.patchcords.begin(); key != patchboard.patchcords.end(); key++)
+				{
+					// for each plot plotId, get the typeTag
+					// ToDo: there should be a loop here to go through all map values for a key. In case, the same signal is patched to multiple scopes
+					if (ofToInt(key->second.back()) == plotIds2.at(i).at(j).at(k))
+					{
+						plotTypeTagList.push_back(key->first);
+					}
+				}
+			}
+			scopeTypeTagList.push_back(plotTypeTagList);
+		}
+		typeTags.push_back(scopeTypeTagList);
+	}
+
+	// Create an index mapping for each type tag
+	for (int w = 0; w < typeTags2.size(); w++) {
+		for (int s = 0; s < typeTags2.at(w).size(); s++) {
+			for (int p = 0; p < typeTags2.at(w).at(s).size(); p++) {
+				vector<int> indexes{ w, s, p };
+				typeTagIndexes2.emplace(typeTags2.at(w).at(s).at(p), indexes);
+			}
+		}
+	}
+
+	for (int i = 0; i < plotIds3.size(); i++)// for multiscopes
+	{
+		vector<vector<std::string>> scopeTypeTagList;
+		for (int j = 0; j < plotIds3.at(i).size(); j++) // for scopes
+		{
+			vector<std::string> plotTypeTagList;
+			for (int k = 0; k < plotIds3.at(i).at(j).size(); k++) // for plots
+			{
+				for (auto key = patchboard.patchcords.begin(); key != patchboard.patchcords.end(); key++)
+				{
+					// for each plot plotId, get the typeTag
+					// ToDo: there should be a loop here to go through all map values for a key. In case, the same signal is patched to multiple scopes
+					if (ofToInt(key->second.back()) == plotIds3.at(i).at(j).at(k))
+					{
+						plotTypeTagList.push_back(key->first);
+					}
+				}
+			}
+			scopeTypeTagList.push_back(plotTypeTagList);
+		}
+		typeTags.push_back(scopeTypeTagList);
+	}
+
+	// Create an index mapping for each type tag
+	for (int w = 0; w < typeTags3.size(); w++) {
+		for (int s = 0; s < typeTags3.at(w).size(); s++) {
+			for (int p = 0; p < typeTags3.at(w).at(s).size(); p++) {
+				vector<int> indexes{ w, s, p };
+				typeTagIndexes3.emplace(typeTags.at(w).at(s).at(p), indexes);
+			}
+		}
+	}
+}
+void ofApp::initMetaDataBuffers2()
+{
+	//should work the same as initMetaDataBuffers but for 4 instances instead of 1
+	bufferSizes0 = initBuffer2(bufferSizes0,0);
+	dataCounts0 = initBuffer2(dataCounts0,0);
+	dataFreqs0 = initBuffer2(dataFreqs0,0);
+	bufferSizes1 = initBuffer2(bufferSizes1, 1);
+	dataCounts1 = initBuffer2(dataCounts1, 1);
+	dataFreqs1 = initBuffer2(dataFreqs1, 1);
+	bufferSizes2 = initBuffer2(bufferSizes2, 2);
+	dataCounts2 = initBuffer2(dataCounts2, 2);
+	dataFreqs2 = initBuffer2(dataFreqs2, 2);
+	bufferSizes3 = initBuffer2(bufferSizes3, 3);
+	dataCounts3 = initBuffer2(dataCounts3, 3);
+	dataFreqs3 = initBuffer2(dataFreqs3, 3);
+}
+template <class T2>
+vector<vector<vector<T2>>> ofApp::initBuffer2(vector<vector<vector<T2>>> buffer,int index) {
+	//should work the same as initBuffers but for 4 instances instead of 1 (searches or the right pointer by index (since only 4 instances of the necessary variables should exist)
+	vector<vector<vector<string>>>* typeTagsIndexPointer;
+	switch (index)
+	{
+		case 0: typeTagsIndexPointer = &typeTags0; break;
+		case 1: typeTagsIndexPointer = &typeTags1; break;
+		case 2: typeTagsIndexPointer = &typeTags2; break;
+		case 3: typeTagsIndexPointer = &typeTags3; break;
+		default: return buffer;
+	}
+	buffer.resize((*typeTagsIndexPointer).size());
+	for (int w = 0; w < (*typeTagsIndexPointer).size(); w++) {
+		buffer.at(w).resize((*typeTagsIndexPointer).at(w).size());
+		for (int s = 0; s < (*typeTagsIndexPointer).at(w).size(); s++) {
+			buffer.at(w).at(s).resize((*typeTagsIndexPointer).at(w).at(s).size());
+			for (int p = 0; p < (*typeTagsIndexPointer).at(w).at(s).size(); p++) {
+				buffer.at(w).at(s).at(p) = 0;
+			}
+		}
+	}
+	return buffer;
+}
+
 void ofApp::draw() {
 	newGui.begin();
 	drawNewGui();
@@ -2141,25 +2539,27 @@ void ofApp::drawNewGui()
 							{
 								const std::string& oldSelection = names[selectedIndices[j]];
 								discoveredDevices[oldSelection].showPlot = false;
+								oscilloscopeIndex[oldSelection] = -1;
+								clearOscilloscopes(j);
 							}
 							it->second.showPlot = true;
 							selectedIndices[j] = index;
+							oscilloscopeIndex[deviceId] = j;
 						}
 						else
 						{
 							//Toggling same emotibit
 							it->second.showPlot = false;
 							selectedIndices[j] = -1;
+							oscilloscopeIndex[deviceId] = -1;
+							clearOscilloscopes(j);
 						}
-						
-						
 					}
 					if (isSelected)
 					{
 						ImGui::SetItemDefaultFocus();
 					}
-					index++;
-					
+					index++;	
 				}
 				ImGui::EndCombo();
 			}
@@ -2167,11 +2567,8 @@ void ofApp::drawNewGui()
 			ImGui::PopID();
 			
 		}
-		//Iterates over each device and draws oscilloscopes depending on if showPlot flag of device is set to true, overhead possible because unnecessary function call, TODO: Change this
-		for (const auto& pair : discoveredDevices)
-		{
-			drawOscilloscopes2(pair.first);
-		}
+		drawOscilloscopes2();
+
 		ImGui::End();
 	}
 
@@ -2189,6 +2586,11 @@ void ofApp::drawNewGui()
 				pair.second.showPlot ? "True" : "False",
 				pair.second.userWantsToConnect ? "True" : "False");
 		}
+		for (const auto& pair : oscilloscopeIndex)
+		{
+			string deviceId = pair.first;
+			ImGui::Text("Device %s should have plot %d", deviceId.c_str(), pair.second);
+		}
 		ImGui::Text("Found packet of type: %s", testString.c_str());
 		ImGui::End();
 	}
@@ -2196,27 +2598,24 @@ void ofApp::drawNewGui()
 
 }
 
-//TODO: Plotting of received data doesn't properly work yet, adjust sizes of template oscilloscopes and change their position
-void ofApp::drawOscilloscopes2(const string& deviceId)
+void ofApp::drawOscilloscopes2()
 {
-	auto it = discoveredDevices.find(deviceId);
-	if (it == discoveredDevices.end()) return;
-
-	if (it->second.showPlot)
+	for (int i = 0; i < scopeWins0.size(); i++)
 	{
-		
-		auto itPlot = devicePlots.find(deviceId);
-		if (itPlot == devicePlots.end()) return;
-		for (int w = 0; w < itPlot->second.oscPlot.size(); w++)
-		{
-			itPlot->second.oscPlot.at(w).plot();
-		}
+		scopeWins0[i].plot();
 	}
-	else
+	for (int i = 0; i < scopeWins1.size(); i++)
 	{
-		clearOscilloscopes(deviceId);
+		scopeWins1[i].plot();
 	}
-
+	for (int i = 0; i < scopeWins2.size(); i++)
+	{
+		scopeWins2[i].plot();
+	}
+	for (int i = 0; i < scopeWins3.size(); i++)
+	{
+		scopeWins3[i].plot();
+	}
 }
 
 void ofApp::connectToDevice(const string& deviceId)
@@ -2235,17 +2634,23 @@ void ofApp::connectToDevice(const string& deviceId)
 
 }
 
-void ofApp::clearOscilloscopes(const string& deviceId)
+void ofApp::clearOscilloscopes(int indexToClear)
 {
-	auto itPlot = devicePlots.find(deviceId);
-	if (itPlot == devicePlots.end())
+	vector<ofxMultiScope>* oscilloscopeToClear = nullptr;
+	switch (indexToClear)
 	{
-		return;
+		case 0: oscilloscopeToClear = &scopeWins0; break;
+		case 1: oscilloscopeToClear = &scopeWins1; break;
+		case 2: oscilloscopeToClear = &scopeWins2; break;
+		case 3: oscilloscopeToClear = &scopeWins3; break;
+		default: return;
 	}
-	for (size_t w = 0; w < itPlot->second.oscPlot.size(); w++)
+	for (int i = 0; i < (*oscilloscopeToClear).size(); i++)
 	{
-		itPlot->second.oscPlot.at(w).clearData();
+		(*oscilloscopeToClear).at(i).clearData();
 	}
+
+	//TODO: Implement the rest of clear oscilloscope i.e. removeDataStream 
 	
 }
 
@@ -2257,10 +2662,9 @@ void ofApp::updateDeviceList2()
 		string deviceId = it->first;
 		EmotibitInfo _emotiBitInfo = it->second;
 
-		//Create new Multiscope for each device if not existent yet
-		if (devicePlots.find(deviceId) == devicePlots.end())
+		if (oscilloscopeIndex.find(deviceId) == oscilloscopeIndex.end())
 		{
-			devicePlots[deviceId] = OscilloscopePlotData(scopeWins, bufferSizes, dataCounts, dataFreqs, yLims, minYSpans);
+			oscilloscopeIndex[deviceId] = -1;
 		}
 	}
 
@@ -2268,12 +2672,27 @@ void ofApp::updateDeviceList2()
 
 void ofApp::processSlowResponseMessage2(const string& deviceId, const vector<string>& splitPacket)
 {
-	//Lookup the AdvancedEmotiBitInfo for this device
+	//Lookup the EmotiBitInfo for this device
 	auto it = discoveredDevices.find(deviceId);
 	if (it == discoveredDevices.end()){return;}
 
-	auto itPlot = devicePlots.find(deviceId);
-	if (itPlot == devicePlots.end()){return;}
+	auto itPlotIndex = oscilloscopeIndex.find(deviceId);
+	if (itPlotIndex == oscilloscopeIndex.end()){return;}
+
+	vector<ofxMultiScope>* oscilloscopeToPlotTo = nullptr;
+	vector<vector<vector<int>>>* bufferSizesOfPlotI = nullptr;
+	vector<vector<vector<int>>>* dataCountsOfPlotI = nullptr;
+	vector<vector<float>>* minYSpansOfPlotI = nullptr;
+	vector<vector<vector<float>>>* yLimsOfPlotI = nullptr;
+	switch (itPlotIndex->second)
+	{
+		case 0: oscilloscopeToPlotTo = &scopeWins0; bufferSizesOfPlotI = &bufferSizes0; dataCountsOfPlotI = &dataCounts0; minYSpansOfPlotI = &minYSpans0; yLimsOfPlotI = &yLims0; break;
+		case 1: oscilloscopeToPlotTo = &scopeWins1; bufferSizesOfPlotI = &bufferSizes1; dataCountsOfPlotI = &dataCounts1; minYSpansOfPlotI = &minYSpans1; yLimsOfPlotI = &yLims1; break;
+		case 2: oscilloscopeToPlotTo = &scopeWins2; bufferSizesOfPlotI = &bufferSizes2; dataCountsOfPlotI = &dataCounts2; minYSpansOfPlotI = &minYSpans2; yLimsOfPlotI = &yLims2; break;
+		case 3: oscilloscopeToPlotTo = &scopeWins3; bufferSizesOfPlotI = &bufferSizes3; dataCountsOfPlotI = &dataCounts3; minYSpansOfPlotI = &minYSpans3; yLimsOfPlotI = &yLims3; break;
+		default: return; //No oscilloscopeIndex assigned in OscilloscopeControl 
+	}
+	
 
 	EmotibitInfo& deviceInfos = it->second;
 
@@ -2360,21 +2779,21 @@ void ofApp::processSlowResponseMessage2(const string& deviceId, const vector<str
 				}
 				if (!isAperiodic)
 				{
-					itPlot->second.oscPlot.at(w).scopes.at(s).updateData(data);
+					(*oscilloscopeToPlotTo).at(w).scopes.at(s).updateData(data);
 				}
 			}
 
 
-			itPlot->second.bufferSizes.at(w).at(s).at(p) = packetHeader.dataLength;
-			itPlot->second.dataCounts.at(w).at(s).at(p) += packetHeader.dataLength;
+			(*bufferSizesOfPlotI).at(w).at(s).at(p) = packetHeader.dataLength;
+			(*dataCountsOfPlotI).at(w).at(s).at(p) += packetHeader.dataLength;
 
 			//Special autscaling for EDA data
 			if (!DEBUGGING && packetHeader.typeTag.compare(EmotiBitPacket::TypeTag::EDA) == 0 && !data.at(p).empty())
 			{
-				itPlot->second.minYSpans.at(w).at(s) = 0.1f * pow(data.at(p).at(0), 1.5f);
-				if (itPlot->second.yLims.at(w).at(s).at(0) == itPlot->second.yLims.at(w).at(s).at(1))
+				(*minYSpansOfPlotI).at(w).at(s) = 0.1f * pow(data.at(p).at(0), 1.5f);
+				if ((*yLimsOfPlotI).at(w).at(s).at(0) == (*yLimsOfPlotI).at(w).at(s).at(1))
 				{
-					itPlot->second.oscPlot.at(w).scopes.at(s).autoscaleY(true, itPlot->second.minYSpans.at(w).at(s));
+					(*oscilloscopeToPlotTo).at(w).scopes.at(s).autoscaleY(true, (*minYSpansOfPlotI).at(w).at(s));
 				}
 			}
 		}
@@ -2448,8 +2867,20 @@ void ofApp::processSlowResponseMessage2(const string& deviceId, const vector<str
 
 void ofApp::processAperiodicData2(const string& deviceId, std::string signalId, std::vector<float> data)
 {
-	auto itPlot = devicePlots.find(deviceId);
-	if (itPlot == devicePlots.end()) return;
+	auto it = oscilloscopeIndex.find(deviceId);
+	if (it == oscilloscopeIndex.end()) return;
+
+	vector<ofxMultiScope>* oscilloscopeToUpdate = nullptr;
+	unordered_map<string, vector<int>>* typeTagIndexesForPlotI = nullptr;
+	vector<vector<vector<string>>>* typeTagsForPlotI = nullptr;
+	switch (it->second)
+	{
+	case 0: oscilloscopeToUpdate = &scopeWins0; typeTagIndexesForPlotI = &typeTagIndexes0; typeTagsForPlotI = &typeTags0 ;break;
+	case 1: oscilloscopeToUpdate = &scopeWins1; typeTagIndexesForPlotI = &typeTagIndexes1; typeTagsForPlotI = &typeTags1 ;break;
+	case 2: oscilloscopeToUpdate = &scopeWins2; typeTagIndexesForPlotI = &typeTagIndexes2; typeTagsForPlotI = &typeTags2 ;break;
+	case 3: oscilloscopeToUpdate = &scopeWins3; typeTagIndexesForPlotI = &typeTagIndexes3; typeTagsForPlotI = &typeTags3 ;break;
+	default: return;
+	}
 
 
 	std::vector<float> periodizedData; // cleared before update inside every update call
@@ -2458,17 +2889,17 @@ void ofApp::processAperiodicData2(const string& deviceId, std::string signalId, 
 		// update() returns size of data which needs to be added into the plot buffers
 		if (periodizerList.at(i).update(signalId, data, periodizedData))
 		{
-			auto indexPtr = typeTagIndexes.find(periodizerList.at(i).outputSignal);
-			if (indexPtr != typeTagIndexes.end())
+			auto indexPtr = (*typeTagIndexesForPlotI).find(periodizerList.at(i).outputSignal);
+			if (indexPtr != (*typeTagIndexesForPlotI).end())
 			{
 				int w = indexPtr->second.at(0); // Scope window(multiscope)
 				int s = indexPtr->second.at(1); // Scope
 				int p = indexPtr->second.at(2); // Plot
 				std::vector<std::vector<float>> plotData;
-				plotData.resize(typeTags.at(w).at(s).size());
+				plotData.resize((*typeTagsForPlotI).at(w).at(s).size());
 				plotData.at(p) = periodizedData;
 				// Add data to oscilloscope
-				itPlot->second.oscPlot.at(w).scopes.at(s).updateData(plotData);
+				(*oscilloscopeToUpdate).at(w).scopes.at(s).updateData(plotData);
 			}
 		}
 	}

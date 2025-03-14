@@ -216,8 +216,8 @@ public:
 
 	std::mutex deviceConnectionsMutex;
 
+	//Not used
 	std::thread* keepAliveThread;
-
 	atomic_bool stopKeepAliveThread = { false };
 
 	int8_t connect2(string deviceId);

@@ -319,7 +319,7 @@ public:
 
 	void drawNewGui();
 	void centeredText(const std::string& text, float columWidth);
-	void drawOscilloscopes2(const string& deviceId);
+	void drawOscilloscopes2();
 	void processModePacket(const string& deviceId, vector<string> splitPacket);
 	void processSlowResponseMessage2(const string& deviceId, const vector<string>& splitPacket);
 	
@@ -327,9 +327,14 @@ public:
 	bool uniqueIdUsed(string idToCheck);
 	const char* stringifyPowerMode(EmotibitInfo::PowerMode modeToStringify);
 	void connectToDevice(const string& deviceId);
-	void clearOscilloscopes(const string& deviceId);
+	void clearOscilloscopes(int indexToClear);
 	void processAperiodicData2(const string& deviceId, std::string signalId, std::vector<float> data);
 	void setupOscilloscopes2();
+	void updatePlotAttributeLists2(std::string settingsFile = "ofxOscilloscopeSettings.xml");
+	void updateTypeTagList2();
+	void initMetaDataBuffers2();
+	template <class T2>
+	vector<vector<vector<T2>>> initBuffer2(vector<vector<vector<T2>>> buffer, int index);
 
 	int selectedTimeSlot;
 	int customTimeSlot;
@@ -355,7 +360,7 @@ public:
 		vector<vector<float>> minYSpans;
 	};
 	unordered_map<string, EmotibitInfo>& discoveredDevices = emotiBitWiFi.getDiscoveredEmotibitsPointer();
-	unordered_map<string, OscilloscopePlotData> devicePlots;
+	//unordered_map<string, OscilloscopePlotData> devicePlots;
 
 	const char* GUI_STRING_MAX_LOW_POWER = "Max low power";
 	const char* GUI_STRING_UNKNOWN_MODE = "Unknown mode";
@@ -368,5 +373,68 @@ public:
 	bool stopProcessingThread = false;
 	std::thread* processingThread;
 
+	//Data for first plot
+	vector<ofxMultiScope> scopeWins0;
+	unordered_map<int, vector<size_t>> plotIdIndexes0;
+	vector<vector<vector<string>>> typeTags0;
+	unordered_map<string, vector<int>> typeTagIndexes0;
+	vector<vector<float>> samplingFreqs0;
+	vector<vector<vector<string>>> plotNames0;
+	vector<vector<vector<float>>> yLims0;
+	vector<vector<float>> minYSpans0;
+	vector<vector<vector<ofColor>>> plotColors0;
+	unordered_map<std::string, typeTagPlotAttr>typeTagPlotAttributes0;
+	vector<vector<vector<int>>> plotIds0;
+	vector<vector<vector<int>>> bufferSizes0;
+	vector<vector<vector<int>>> dataCounts0;
+	vector<vector<vector<float>>> dataFreqs0;
+	//Data for second plot
+	vector<ofxMultiScope> scopeWins1;
+	unordered_map<int, vector<size_t>> plotIdIndexes1;
+	vector<vector<vector<string>>> typeTags1;
+	unordered_map<string, vector<int>> typeTagIndexes1;
+	vector<vector<float>> samplingFreqs1;
+	vector<vector<vector<string>>> plotNames1;
+	vector<vector<vector<float>>> yLims1;
+	vector<vector<float>> minYSpans1;
+	vector<vector<vector<ofColor>>> plotColors1;
+	unordered_map<std::string, typeTagPlotAttr>typeTagPlotAttributes1;
+	vector<vector<vector<int>>> plotIds1;
+	vector<vector<vector<int>>> bufferSizes1;
+	vector<vector<vector<int>>> dataCounts1;
+	vector<vector<vector<float>>> dataFreqs1;
+	//Data for third plot
+	vector<ofxMultiScope> scopeWins2;
+	unordered_map<int, vector<size_t>> plotIdIndexes2;
+	vector<vector<vector<string>>> typeTags2;
+	unordered_map<string, vector<int>> typeTagIndexes2;
+	vector<vector<float>> samplingFreqs2;
+	vector<vector<vector<string>>> plotNames2;
+	vector<vector<vector<float>>> yLims2;
+	vector<vector<float>> minYSpans2;
+	vector<vector<vector<ofColor>>> plotColors2;
+	unordered_map<std::string, typeTagPlotAttr>typeTagPlotAttributes2;
+	vector<vector<vector<int>>> plotIds2;
+	vector<vector<vector<int>>> bufferSizes2;
+	vector<vector<vector<int>>> dataCounts2;
+	vector<vector<vector<float>>> dataFreqs2;
+	//Data for fourth plot
+	vector<ofxMultiScope> scopeWins3;
+	unordered_map<int, vector<size_t>> plotIdIndexes3;
+	vector<vector<vector<string>>> typeTags3;
+	unordered_map<string, vector<int>> typeTagIndexes3;
+	vector<vector<float>> samplingFreqs3;
+	vector<vector<vector<string>>> plotNames3;
+	vector<vector<vector<float>>> yLims3;
+	vector<vector<float>> minYSpans3;
+	vector<vector<vector<ofColor>>> plotColors3;
+	unordered_map<std::string, typeTagPlotAttr>typeTagPlotAttributes3;
+	vector<vector<vector<int>>> plotIds3;
+	vector<vector<vector<int>>> bufferSizes3;
+	vector<vector<vector<int>>> dataCounts3;
+	vector<vector<vector<float>>> dataFreqs3;
+
+	std::array<const char*, 4> deviceIdsToPlot;
+	unordered_map<string, int> oscilloscopeIndex;
 };
 

@@ -1394,6 +1394,7 @@ unordered_map<string, vector<string>> EmotiBitWiFiHost::getAllDeviceDataPackets(
 	return devicePackets;
 }
 
+//Sets a bool to skip/continue reading of data in updateData2 
 void EmotiBitWiFiHost::pauseDataReception(const string& deviceId, bool pause)
 {
 	std::lock_guard<std::mutex> lock(deviceConnectionsMutex);
@@ -1404,6 +1405,7 @@ void EmotiBitWiFiHost::pauseDataReception(const string& deviceId, bool pause)
 	}
 }
 
+//Not being used ignore
 void EmotiBitWiFiHost::processKeepAliveThread()
 {
 	while (!stopKeepAliveThread)
@@ -1563,7 +1565,7 @@ int8_t EmotiBitWiFiHost::processAdvertising2(vector<string>& infoPackets)
 	return SUCCESS;
 }
 
-//With this one can directly manipulate the discoveredDevices 
+//With this one can directly manipulate the discoveredDevices from other scripts. 
 std::unordered_map<std::string, EmotibitInfo>& EmotiBitWiFiHost::getDiscoveredEmotibitsPointer()
 {
 	std::lock_guard<std::mutex> lock(discoveredEmotibitsMutex);
