@@ -170,6 +170,12 @@
     <ClCompile Include="src\EmotiBitLsl.cpp">
       <Filter>src</Filter>
     </ClCompile>
+    <ClCompile Include="src\FileLogger.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\EmotiBitWiFiMultiHost.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\ofxImGui\libs\imgui\src\imgui.cpp">
       <Filter>addons\ofxImGui\libs\imgui\src</Filter>
     </ClCompile>
@@ -205,9 +211,6 @@
     </ClCompile>
     <ClCompile Include="..\..\ofxImGui\src\ofxImGuiLoggerChannel.cpp">
       <Filter>addons\ofxImGui\src</Filter>
-    </ClCompile>
-    <ClCompile Include="src\FileLogger.cpp">
-      <Filter>src</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -374,13 +377,13 @@
       <UniqueIdentifier>{8394c988-5bed-4c62-8e7f-c214ecc6a105}</UniqueIdentifier>
     </Filter>
     <Filter Include="addons\ofxImGui\libs\imgui">
-      <UniqueIdentifier>{bda84898-2307-4f9e-8109-20093d084139}</UniqueIdentifier>
+      <UniqueIdentifier>{5c68c7b5-6d8e-4b3a-8bfd-27160c2df193}</UniqueIdentifier>
     </Filter>
     <Filter Include="addons\ofxImGui\libs\imgui\src">
-      <UniqueIdentifier>{18888cb0-a007-4fce-abb0-c870a8d97507}</UniqueIdentifier>
+      <UniqueIdentifier>{515b955e-f199-4a42-9894-e64ea20b0b01}</UniqueIdentifier>
     </Filter>
     <Filter Include="addons\ofxImGui\src">
-      <UniqueIdentifier>{e7b8fe6c-00cb-4054-9575-ddba4d21e7bf}</UniqueIdentifier>
+      <UniqueIdentifier>{41a43023-88da-483b-8226-c3f49f68adb1}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -613,6 +616,9 @@
       <Filter>src</Filter>
     </ClInclude>
     <ClInclude Include="src\EmotiBitLsl.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\EmotiBitWiFiMultiHost.h">
       <Filter>src</Filter>
     </ClInclude>
     <ClInclude Include="..\..\ofxImGui\libs\imgui\src\imgui.h">
