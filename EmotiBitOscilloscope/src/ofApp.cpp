@@ -245,6 +245,7 @@ void ofApp::setupOscilloscopes()
 	updateTypeTagList();
 	initMetaDataBuffers();
 }
+
 void ofApp::drawDeviceList() {
 	//Decide column amount
 	const int Ncols = 7;

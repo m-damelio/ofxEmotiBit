@@ -68,9 +68,19 @@ void DiscoveryService::processIncoming() {
 				std::string dataPortStr, dev;
 				int16_t dataPortPos = EmotiBitPacket::getPacketKeyedValue(packet, EmotiBitPacket::PayloadLabel::DATA_PORT, dataPortStr, dataStartChar);
 				int16_t deviceIdPos = EmotiBitPacket::getPacketKeyedValue(packet, EmotiBitPacket::PayloadLabel::DEVICE_ID, dev, dataStartChar);
-				if (discovered.find(dev) != discovered.end())
+
+				//check if device exists with minimal lock scope
+				bool deviceExists = false;
+				{
+					std::lock_guard<std::mutex> lock(discoveredMutex);
+					deviceExists = discovered.find(dev) != discovered.end();
+				}
+				
+
+				if (deviceExists)
 				{
 					ofLogNotice("DiscoveryService") << "Device " << dev << " exists in dictionary already. Stopped processing the data port and device id.";
+					updateDeviceLastSeen(dev);
 					return;
 				}
 				if (dataPortPos > -1)
@@ -86,12 +96,25 @@ void DiscoveryService::processIncoming() {
 						ofLogVerbose("DiscoveryService") << "EmotiBit DeviceId: DeviceId not available. Using IP address as identifier";
 					}
 					ofLogNotice("DiscoveryService") << "Discovered device: " << dev << " at " << ip << " with data port value: " << dataPortValue << " (connectable: " << isConnectable << ")";
-					std::lock_guard<std::mutex> lock(discoveredMutex);
-					discovered[dev] = EmotiBitInfo(ip, isConnectable);
+					
+					{
+						std::lock_guard<std::mutex> lock(discoveredMutex);
+						discovered[dev] = EmotiBitInfo(ip, isConnectable);
+					}
 					
 				}
 			}
 		}
+	}
+}
+
+void DiscoveryService::updateDeviceLastSeen(const std::string& deviceId)
+{
+	std::lock_guard<std::mutex> lock(discoveredMutex);
+	auto it = discovered.find(deviceId);
+	if (it != discovered.end())
+	{
+		it->second.lastSeen = ofGetElapsedTimeMillis();
 	}
 }
 //-------------------------------------------------EmotiBitSession----------------------------------------------------
@@ -100,8 +123,9 @@ EmotiBitSession::EmotiBitSession(const std::string& id,
 	const WiFiHostSettings& s,
 	int advPort,
 	int ctrlPort,
-	int dtPort)
-	: deviceId(id), ip(ipAddr), settings(s), controlPort(ctrlPort), dataPort(dtPort), stopFlag(false), connected(false), isStarting(false) {
+	int dtPort,
+	UpdateLastSeenCallback callback = nullptr)
+	: deviceId(id), ip(ipAddr), settings(s), controlPort(ctrlPort), dataPort(dtPort), stopFlag(false), connected(false), isStarting(false), updateLastSeenCallback(callback) {
 	controlServer.setup(controlPort);
 	controlServer.setMessageDelimiter(ofToString(EmotiBitPacket::PACKET_DELIMITER_CSV));
 	ofLogNotice("EmotiBitSession") << "Created session for " << deviceId << " at " << ip << " - Control port: " << controlPort << " - Data port:" << dataPort;
@@ -183,7 +207,19 @@ void EmotiBitSession::rundDataLoop() {
 
 void EmotiBitSession::controlLoop() {
 	ofLogNotice("EmotiBitSession") << "Started control loop for " << deviceId << " on port " << controlPort;
+
+	//PING variables 
+	uint64_t lastPingTime = ofGetElapsedTimeMillis();
+	const uint64_t pingInterval = 5000; //5 sec
+	uint32_t pingPacketCounter = 0;
+
+	//UDP connection 
+	ofxUDPManager pingCxn;
+	pingCxn.Create();
+	pingCxn.SetNonBlocking(true);
+
 	while (!stopFlag) {
+		//Handle control connections
 		for (int i = 0; i < controlServer.getLastID();i++) {
 			if (controlServer.isClientConnected(i)) {
 				if (!connected) {
@@ -197,13 +233,53 @@ void EmotiBitSession::controlLoop() {
 				if (!received.empty())
 				{
 					ofLogVerbose("EmotiBitSession") << "Received control messag from " << deviceId << ": " << received;
+
+					//Check for PONG messages in control messages
+					std::vector<std::string> packets = ofSplitString(received, ofToString(EmotiBitPacket::PACKET_DELIMITER_CSV));
+					for (const std::string& packet : packets) {
+						EmotiBitPacket::Header h;
+						int16_t dataStartChar = EmotiBitPacket::getHeader(packet, h);
+						if (dataStartChar > 0 && h.typeTag == EmotiBitPacket::TypeTag::PONG)
+						{
+							//Handle Pong response
+							std::string pongDataPortStr;
+							int16_t pongDataPortPos = EmotiBitPacket::getPacketKeyedValue(packet, EmotiBitPacket::PayloadLabel::DATA_PORT, pongDataPortStr, dataStartChar);
+							if (pongDataPortPos > -1 && ofToInt(pongDataPortStr) == dataPort)
+							{
+								ofLogVerbose("EmotiBitSession") << "Received PONG from " << deviceId;
+								if (updateLastSeenCallback) { updateLastSeenCallback(deviceId); }
+							}
+						}
+					}
 					std::lock_guard<std::mutex> lock(dataMutex);
 					controlQueue.push_back(received);
 				}
 			}
 		}
+		//Send periodic ping if connected via UDP control connection
+		if (connected && ofGetElapsedTimeMillis() - lastPingTime >= pingInterval)
+		{
+			lastPingTime = ofGetElapsedTimeMillis();
+
+			std::vector<std::string> payload = {
+				EmotiBitPacket::PayloadLabel::DATA_PORT, std::to_string(dataPort)
+			};
+			std::string pingPacket = EmotiBitPacket::createPacket(
+				EmotiBitPacket::TypeTag::PING,
+				pingPacketCounter++,
+				payload
+			);
+
+			pingCxn.Connect(ip.c_str(), EmotiBitComms::WIFI_ADVERTISING_PORT);
+			pingCxn.SetEnableBroadcast(false);
+			int sent = pingCxn.Send(pingPacket.c_str(), pingPacket.size());
+			ofLogVerbose("EmotiBitSession") << "Sent PING to " << deviceId << " via UDP (" << sent << " bytes)";
+		}
+
 		std::this_thread::sleep_for(std::chrono::milliseconds(50));
 	}
+
+	pingCxn.Close();
 	ofLogNotice("EmotiBitSession") << "Control loop ended for " << deviceId;
 }
 void EmotiBitSession::handshakeLoop() {
@@ -274,9 +350,11 @@ void EmotiBitSession::handshakeLoop() {
 						ofLogNotice("EmotiBitSession") << "PONG received - data port: " << pongDataPort << ", expected: " << dataPort;
 						if (pongDataPort == dataPort)
 						{
-							std::lock_guard<std::mutex> lock(stateMutex);
 							ofLogNotice("EmotiBitSession") << "Device " << deviceId << " connected successfully.";
-							isStarting = false;
+							{
+								std::lock_guard<std::mutex> lock(stateMutex);
+								isStarting = false;
+							}
 							handshakeCxn.Close();
 							return;
 						}
@@ -287,7 +365,11 @@ void EmotiBitSession::handshakeLoop() {
 		}
 		if (currentTime > settings.connectionTimeout) {
 			ofLogWarning("EmotiBitSession") << "Handshake connection to " << deviceId << " timed out after " << currentTime<<"ms";
-			isStarting = false;
+			{
+				std::lock_guard<std::mutex> lock(stateMutex);
+				isStarting = false;
+			}
+			
 			break;
 		}
 
@@ -350,9 +432,13 @@ int8_t EmotiBitWiFiMultiHost::connect(const std::string& deviceId) {
 	int dataPort = baseDataPort + sessionIndex * 2;
 
 	ofLogNotice("EmotibitWiFiMultiHost") << "Connecting to " << deviceId << " at " << it->second.ip << " - Control: " << ctrlPort << ", Data: " << dataPort;
+	//Add call backs to update device info
+	auto callback = [this](const std::string& devId) {
+		this->updateDeviceLastSeen(devId);
+	};
 
 	try {
-		auto session = std::make_unique<EmotiBitSession>(deviceId, it->second.ip, settings, advertisingPort, ctrlPort, dataPort);
+		auto session = std::make_unique<EmotiBitSession>(deviceId, it->second.ip, settings, advertisingPort, ctrlPort, dataPort, callback);
 		session->start();
 		sessions[deviceId] = std::move(session);
 		return SUCCESS;
@@ -419,4 +505,9 @@ void EmotiBitWiFiMultiHost::readControl(const std::string& deviceId, std::vector
 	{
 		it->second->readControl(packets);
 	}
+}
+
+void EmotiBitWiFiMultiHost::updateDeviceLastSeen(const std::string& deviceId)
+{
+	discovery.updateDeviceLastSeen(deviceId);
 }

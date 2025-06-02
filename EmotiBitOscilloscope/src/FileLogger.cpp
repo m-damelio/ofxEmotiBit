@@ -18,9 +18,10 @@ public:
 
 	void log(ofLogLevel logLevel, const std::string& module, const std::string& message) override
 	{
-		const char* name = "C:\\Users\Marco\Desktop\of_v0.11.2_vs2017_release\addons\ofxNetwork\src\ofxUDPManager.cpp:";
-		int size = strlen(name)+1;
-		if (module == "ofxNetwork" && message.substr(size) == "423 EINVAL: invalid argument") return;
+		if (module == "ofxNetwork" || message.find("EINVAL: invalid argument") != std::string::npos)
+		{
+			return;
+		}
 		std::string logMessage = formatLog(logLevel, module, message);
 		if (ofs.is_open())
 		{

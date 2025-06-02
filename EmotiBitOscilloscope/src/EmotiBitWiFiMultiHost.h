@@ -10,6 +10,7 @@
 #include "EmotiBitPacket.h"
 #include "EmotiBitComms.h"
 
+using UpdateLastSeenCallback = std::function<void(const std::string& deviceId)>;
 
 enum class PowerMode {
 	HIBERNATE,
@@ -61,6 +62,8 @@ public:
 	void stop();
 	std::unordered_map<std::string, EmotiBitInfo> getDiscovered();
 
+	void updateDeviceLastSeen(const std::string& deviceId);
+
 private:
 	void runAdvertisingLoop();
 	void processIncoming();
@@ -83,7 +86,8 @@ public:
 		const WiFiHostSettings& settings,
 		int advertisingPort,
 		int controlPort,
-		int dataPort);
+		int dataPort,
+		UpdateLastSeenCallback callback);
 	~EmotiBitSession();
 
 	void start();
@@ -125,6 +129,8 @@ private:
 	uint16_t recvPacketNumber = 0;
 	std::vector<std::string> dataQueue;
 	std::vector<std::string> controlQueue;
+
+	UpdateLastSeenCallback updateLastSeenCallback;
 };
 
 class EmotiBitWiFiMultiHost {
@@ -147,6 +153,7 @@ public:
 	int getSessionControlPort(const std::string& deviceId);
 	bool isSessionConnected(const std::string& devideId);
 	int getSettingsTimeout();
+	void updateDeviceLastSeen(const std::string& deviceId);
 
 	static const uint8_t SUCCESS = 0;
 	static const uint8_t FAIL = -1;
@@ -160,4 +167,6 @@ private:
 
 	std::mutex sessionsMutex;
 	std::unordered_map<std::string, std::unique_ptr<EmotiBitSession>> sessions;
+
+	
 };
