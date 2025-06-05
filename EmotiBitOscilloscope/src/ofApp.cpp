@@ -226,8 +226,8 @@ void ofApp::setupOscilloscopes()
 	}
 	else
 	{
-		ofLog(OF_LOG_NOTICE, "PatchBoard File Not Found!");
-		while (1);
+		ofLogError("ofApp") << "PatchBoard File Not Found: " << ofToDataPath("inputSettings.xml");
+		return;
 	}
 	ofFile scopeSettingsFile(ofToDataPath("ofxOscilloscopeSettings.xml"));
 	// check if oscilloscope settings file exists
@@ -237,8 +237,8 @@ void ofApp::setupOscilloscopes()
 	}
 	else
 	{
-		ofLog(OF_LOG_NOTICE, "Scope Settings File Not Found!");
-		while (1);
+		ofLogError("ofApp") << "Scope Settings File Not Found: " << ofToDataPath("ofxOscilloscopeSettings.xml");
+		return;
 	}
 	plotIds = ofxMultiScope::getPlotIds();
 	updatePlotAttributeLists();
@@ -330,7 +330,7 @@ void ofApp::drawDeviceList() {
 		ImGui::Separator();
 		auto& info = discovered.at(selectedDevice);
 		ImGui::Text("Details for %s:", selectedDevice.c_str());
-		ImGui::BulletText("IP: %s", info.ip.c_str());
+		ImGui::BulletText("IP: %s", info.identifier.ip.c_str());
 		ImGui::BulletText("Last seen: %llu ms ago", ofGetElapsedTimeMillis() - info.lastSeen);
 		int dp = wifiHost.getSessionDataPort(selectedDevice);
 		ImGui::BulletText("Data Port: %d", dp);
