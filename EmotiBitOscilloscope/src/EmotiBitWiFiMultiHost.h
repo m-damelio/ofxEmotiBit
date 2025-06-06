@@ -45,11 +45,12 @@ struct EmotiBitInfo {
 
 	int dataPort = -1;
 	int controlPort = -1;
-	int batteryPercent = -1;
+	std::string batteryStatus = "??";
 	PowerMode powerMode = PowerMode::NORMAL_POWER;
 	int clippingCount = 0;
 	int overflowCount = 0;
 	std::string currentSdFilename;
+	bool recording = false;
 
 	//Connection tracking 
 	std::string firmwareVersion;
@@ -122,6 +123,14 @@ public:
 	DeviceIdentifier resolveDeviceIdentifier(const std::string& rawDeviceId, const std::string& ip);
 	void cleanupDevice(const std::string& deviceId);
 	void setDeviceCleanupcallback(DeviceCleanupCallback callback) { cleanupCallback = callback; }
+
+	//Information updates
+	void incrementClippingCount(const std::string& deviceId, int amount = 1);
+	void incrementOverflowCount(const std::string& deviceId, int amount = 1);
+	void updateBatteryStatus(const std::string& deviceId, std::string newBatteryStatus);
+	void updatePowerMode(const std::string& deviceId, PowerMode newPowerMode);
+	void setRecordingStatus(const std::string& deviceId, bool newRecordingStatus);
+	void setFilename(const std::string& deviceId, std::string newFileName);
 
 private:
 	enum class AdvertisingMessageType {
@@ -254,6 +263,7 @@ public:
 
 	int8_t begin(); //start discovery
 	void stop(); //stops all
+	AdvertisingChannelManager* EmotiBitWiFiMultiHost::getAdvertisingManager() { return advertisingManager.get(); }
 
 	//Device discovery and management 
 	std::unordered_map<std::string, EmotiBitInfo> getDiscoveredDevices();

@@ -388,6 +388,41 @@ void AdvertisingChannelManager::cleanupDevice(const std::string& deviceId) {
 	std::lock_guard<std::mutex> pingLock(pingCallbacksMutex);
 	pingCallbacks.erase(deviceId);
 }
+
+void AdvertisingChannelManager::incrementClippingCount(const std::string& deviceId, int amount) {
+	std::lock_guard<std::mutex> lock(discoveredMutex);
+	auto it = discoveredDevices.find(deviceId);
+	if (it != discoveredDevices.end()) it->second.clippingCount += amount;
+}
+void AdvertisingChannelManager::incrementOverflowCount(const std::string& deviceId, int amount) {
+	std::lock_guard<std::mutex> lock(discoveredMutex);
+	auto it = discoveredDevices.find(deviceId);
+	if (it != discoveredDevices.end()) it->second.overflowCount += amount;
+}
+
+void AdvertisingChannelManager::updateBatteryStatus(const std::string& deviceId, std::string newBatteryStatus) {
+	std::lock_guard<std::mutex> lock(discoveredMutex);
+	auto it = discoveredDevices.find(deviceId);
+	if (it != discoveredDevices.end()) it->second.batteryStatus = newBatteryStatus;
+}
+
+void AdvertisingChannelManager::updatePowerMode(const std::string& deviceId, PowerMode newPowerMode) {
+	std::lock_guard<std::mutex> lock(discoveredMutex);
+	auto it = discoveredDevices.find(deviceId);
+	if (it != discoveredDevices.end()) it->second.powerMode = newPowerMode;
+}
+
+void AdvertisingChannelManager::setRecordingStatus(const std::string& deviceId, bool newStatus) {
+	std::lock_guard<std::mutex> lock(discoveredMutex);
+	auto it = discoveredDevices.find(deviceId);
+	if (it != discoveredDevices.end()) it->second.recording = newStatus;
+}
+
+void AdvertisingChannelManager::setFilename(const std::string& deviceId, std::string newFilename) {
+	std::lock_guard<std::mutex> lock(discoveredMutex);
+	auto it = discoveredDevices.find(deviceId);
+	if (it != discoveredDevices.end()) it->second.currentSdFilename = newFilename;
+}
 //-------------------------------------------------EmotiBitSession----------------------------------------------------
 EmotiBitSession::EmotiBitSession(const std::string& id, 
 	const std::string& ipAddr,
@@ -462,7 +497,7 @@ void EmotiBitSession::rundDataLoop() {
 			std::string pkt(buf, sz);
 			std::lock_guard<std::mutex> lock(dataMutex);
 			dataQueue.push_back(pkt);
-			if (pkt.find("HR")) { ofLogNotice("EmotiBitSession") << "HR packet found"; }
+
 			static int packetCount = 0;
 			if (packetCount < 5)
 			{

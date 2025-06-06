@@ -13,6 +13,8 @@ void ofApp::setup() {
 }
 
 void ofApp::update() {
+	uint64_t currentTime = ofGetElapsedTimeMillis();
+
 	for (auto& kv : deviceScopes) {
 		const auto& devId = kv.first;
 		auto& scopes = kv.second;
@@ -29,12 +31,11 @@ void ofApp::update() {
 				auto splitPacket = ofSplitString(splitPackets, ",");
 				EmotiBitPacket::Header h;
 				if (!EmotiBitPacket::getHeader(splitPacket, h)) continue;
-				ofLogVerbose("ofApp") << "TypeTag: " << h.typeTag;
 				//Check if typeTag exists in mapping
 				auto typeTagIt = typeTagIndexes.find(h.typeTag);
 				if (typeTagIt == typeTagIndexes.end())
 				{
-					ofLogWarning("ofApp") << "unknown typetag: " << h.typeTag << " - skipping packet";
+					processNonOscilloscopePacket(devId, splitPacket);
 					continue;
 				}
 				vector<float> dataVec;
@@ -94,6 +95,11 @@ void ofApp::update() {
 			}
 			
 		}
+		if (currentTime - lastFlushTime >= flushInterval) {
+			flushLocalCounters();
+			lastFlushTime = currentTime;
+		}
+
 		for (auto& updateKv : scopeUpdates)
 		{
 			int w = updateKv.first.first;
@@ -292,10 +298,7 @@ void ofApp::drawDeviceList() {
 		ImGui::NextColumn();
 
 		//Battery
-		char batBuf[16];
-		if (info.batteryPercent >= 0) snprintf(batBuf, sizeof(batBuf), "%d%%", info.batteryPercent);
-		else strcpy(batBuf, "--");
-		centeredText(batBuf, columnWidth);
+		centeredText(info.batteryStatus.c_str(), columnWidth);
 		ImGui::NextColumn();
 
 		//Power Mode
@@ -403,4 +406,134 @@ void ofApp::onDeviceConnect(const std::string& devId) {
 void ofApp::onDeviceDisconnect(const std::string& devId) {
 	wifiHost.disconnect(devId);
 	deviceScopes.erase(devId);
+}
+
+void ofApp::processNonOscilloscopePacket(const std::string& deviceId, vector<std::string> packet) {
+	EmotiBitPacket::Header h;
+	EmotiBitPacket::getHeader(packet, h);
+	auto* manager = wifiHost.getAdvertisingManager();
+
+	if (h.typeTag.compare(EmotiBitPacket::TypeTag::BATTERY_PERCENT) == 0)
+	{
+		std::string batteryStatus = packet.at(6) + "%";
+		manager->updateBatteryStatus(deviceId, batteryStatus);
+	}
+	else if (h.typeTag.compare(EmotiBitPacket::TypeTag::BATTERY_VOLTAGE) == 0) {
+		std::string batteryStatus = packet.at(6) + "V";
+		manager->updateBatteryStatus(deviceId, batteryStatus);
+	}
+	else if (h.typeTag.compare(EmotiBitPacket::TypeTag::DATA_CLIPPING) == 0) {
+		for (int n = EmotiBitPacket::headerLength; n < packet.size(); n++) {
+			for (int w = 0; w < typeTags.size(); w++) {
+				for (int s = 0; s < typeTags.at(w).size(); s++) {
+					for (int p = 0; p < typeTags.at(w).at(s).size(); p++) {
+						if (packet.at(n).compare(typeTags.at(w).at(s).at(p)) == 0) {
+							std::lock_guard<std::mutex> lock(localCountMutex);
+							localClippingCounts[deviceId]++;
+						}
+					}
+				}
+			}
+		}
+	}
+	else if (h.typeTag.compare(EmotiBitPacket::TypeTag::DATA_OVERFLOW) == 0) {
+		for (int n = EmotiBitPacket::headerLength; n < packet.size(); n++) {
+			for (int w = 0; w < typeTags.size(); w++) {
+				for (int s = 0; s < typeTags.at(w).size(); s++) {
+					for (int p = 0; p < typeTags.at(w).at(s).size(); p++) {
+						if (packet.at(n).compare(typeTags.at(w).at(s).at(p)) == 0) {
+							std::lock_guard<std::mutex> lock(localCountMutex);
+							localOverflowCounts[deviceId]++;
+						}
+					}
+				}
+			}
+		}
+	}
+	else if (h.typeTag.compare(EmotiBitPacket::TypeTag::EMOTIBIT_MODE) == 0) {
+		size_t startIndex = EmotiBitPacket::headerLength;
+		string value;
+
+		int pos = EmotiBitPacket::getPacketKeyedValue(packet, EmotiBitPacket::PayloadLabel::RECORDING_STATUS, value);
+		if (pos > -1)
+		{
+			if (value.compare(EmotiBitPacket::TypeTag::RECORD_BEGIN) == 0)
+			{
+				manager->setRecordingStatus(deviceId, true);
+				// See if we got a filename for the file we're recording to
+				if (pos + 1 < packet.size())
+				{
+					string filename = packet.at(pos + 1);
+					if (filename.size() > 4 && filename.substr(filename.size() - 4, 4).compare(".csv") == 0)
+					{
+						manager->setFilename(deviceId, filename);
+					}
+					else
+					{
+						manager->setFilename(deviceId, "Recording");
+					}
+				}
+			}
+			else if (value.compare(EmotiBitPacket::TypeTag::RECORD_END) == 0)
+			{
+				manager->setRecordingStatus(deviceId, false);
+			}
+		}
+
+		if (EmotiBitPacket::getPacketKeyedValue(packet, EmotiBitPacket::PayloadLabel::POWER_STATUS, value) > -1)
+		{
+			if (value.compare(EmotiBitPacket::TypeTag::MODE_NORMAL_POWER) == 0)
+			{
+				manager->updatePowerMode(deviceId, PowerMode::NORMAL_POWER);
+			}
+			else if (value.compare(EmotiBitPacket::TypeTag::MODE_LOW_POWER) == 0)
+			{
+				manager->updatePowerMode(deviceId, PowerMode::LOW_POWER);
+			}
+			else if (value.compare(EmotiBitPacket::TypeTag::MODE_MAX_LOW_POWER) == 0)
+			{
+				manager->updatePowerMode(deviceId, PowerMode::MAX_LOW_POWER);
+			}
+			else if (value.compare(EmotiBitPacket::TypeTag::MODE_WIRELESS_OFF) == 0)
+			{
+				manager->updatePowerMode(deviceId, PowerMode::WIRELESS_OFF);
+				wifiHost.disconnect(deviceId);
+			}
+			else if (value.compare(EmotiBitPacket::TypeTag::MODE_HIBERNATE) == 0)
+			{
+				manager->updatePowerMode(deviceId, PowerMode::HIBERNATE);
+				wifiHost.disconnect(deviceId);
+			}
+		}
+	}
+	else {
+		ofLogWarning("ofApp") << "unknown typetag: " << h.typeTag << " - skipping packet";
+	}
+}
+
+void ofApp::flushLocalCounters() {
+	std::lock_guard<std::mutex> lock(localCountMutex);
+	auto* manager = wifiHost.getAdvertisingManager();
+	if (!manager) return;
+
+	for (auto overflowIt = localOverflowCounts.begin(); overflowIt != localOverflowCounts.end();) {
+		auto devId = overflowIt->first;
+		auto amount = overflowIt->second;
+		if (amount > 0) {
+			manager->incrementOverflowCount(devId, amount);
+		}
+		++overflowIt;
+	}
+
+	for (auto clippingIt = localClippingCounts.begin(); clippingIt != localClippingCounts.end();) {
+		auto devId = clippingIt->first;
+		auto amount = clippingIt->second;
+		if (amount > 0) {
+			manager->incrementClippingCount(devId, amount);
+		}
+		++clippingIt;
+	}
+
+	localClippingCounts.clear();
+	localOverflowCounts.clear();
 }

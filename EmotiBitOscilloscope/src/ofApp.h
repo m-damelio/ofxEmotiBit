@@ -49,6 +49,8 @@ public:
 	void drawDeviceList();
 	void onDeviceConnect(const std::string& deviceId);
 	void onDeviceDisconnect(const std::string& deviceId);
+	void processNonOscilloscopePacket(const std::string& deviceId,vector<std::string> packet);
+	void flushLocalCounters();
 
 	ofxImGui::Gui gui;
 	EmotiBitWiFiMultiHost wifiHost;
@@ -93,6 +95,12 @@ public:
 	vector<vector<vector<int>>> bufferSizes;
 	vector<vector<vector<int>>> dataCounts;
 	vector<vector<vector<float>>> dataFreqs;
+
+	std::unordered_map<std::string, int> localOverflowCounts;
+	std::unordered_map<std::string, int> localClippingCounts;
+	std::mutex localCountMutex;
+	uint64_t lastFlushTime = 0;
+	const uint64_t flushInterval = 200;
 
 	void centeredText(const char* txt, float columnWidth) {
 		float textWidth = ImGui::CalcTextSize(txt).x;
