@@ -153,7 +153,11 @@ void AdvertisingChannelManager::advertisingLoop() {
 		//Handle discovery broadcasts
 		if (discoveryActive && ofGetElapsedTimeMillis() - lastDiscoveryBroadcast >= settings.sendAdvertisingInterval) {
 			lastDiscoveryBroadcast = ofGetElapsedTimeMillis();
-			std::string packet = EmotiBitPacket::createPacket(EmotiBitPacket::TypeTag::HELLO_EMOTIBIT, discoveryPacketCounter++, "", 0);
+
+			//Keep counter small to maintain consistent package size
+			uint32_t smallCounter = discoveryPacketCounter % 100;
+			std::string packet = EmotiBitPacket::createPacket(EmotiBitPacket::TypeTag::HELLO_EMOTIBIT, smallCounter, "", 0);
+			discoveryPacketCounter++;
 			std::lock_guard<std::mutex> lock(messageQueueMutex);
 			outgoingMessages.emplace(AdvertisingMessageType::DISCOVERY_HELLO, "", "255.255.255.255", packet);
 		}
@@ -297,6 +301,7 @@ void AdvertisingChannelManager::handlePongResponse(const std::string& packet, co
 	std::string pongDataPortStr;
 	int16_t pongDataPortPos = EmotiBitPacket::getPacketKeyedValue(packet, EmotiBitPacket::PayloadLabel::DATA_PORT, pongDataPortStr, 0);
 
+	ofLogNotice("AdvertisingChannelManager") << "Pong response received: " << packet.c_str();
 	if (pongDataPortPos > -1) {
 		int pongDataPort = ofToInt(pongDataPortStr);
 
@@ -344,8 +349,13 @@ void AdvertisingChannelManager::cleanupTimedOutDevices() {
 	auto it = discoveredDevices.begin();
 	while (it != discoveredDevices.end()) {
 		if (ofGetElapsedTimeMillis() - it->second.lastSeen > settings.deviceTimeoutMs){
+			std::string deviceId = it->first;
 			ofLogNotice("AdvertisingChannelManager") << "Device " << it->second.getDisplayName() << " timed out";
 			it = discoveredDevices.erase(it);
+
+			//Notify WiFiMultiHost about cleanup
+			if (cleanupCallback) { cleanupCallback(deviceId); }
+
 		}
 		else{
 			++it;
@@ -383,10 +393,9 @@ EmotiBitSession::EmotiBitSession(const std::string& id,
 	const std::string& ipAddr,
 	const WiFiHostSettings& s,
 	int ctrlPort,
-	int dtPort,
-	UpdateLastSeenCallback callback = nullptr, 
+	int dtPort, 
 	AdvertisingChannelManager* advManager = nullptr)
-	: deviceId(id), ip(ipAddr), settings(s), controlPort(ctrlPort), dataPort(dtPort), stopFlag(false), connected(false), updateLastSeenCallback(callback), advertisingManager(advManager) {
+	: deviceId(id), ip(ipAddr), settings(s), controlPort(ctrlPort), dataPort(dtPort), stopFlag(false), connected(false), advertisingManager(advManager) {
 
 	controlServer.setup(controlPort);
 	controlServer.setMessageDelimiter(ofToString(EmotiBitPacket::PACKET_DELIMITER_CSV));
@@ -509,9 +518,6 @@ void EmotiBitSession::controlLoop() {
 			{
 				auto pongCallback = [this](const std::string& devId) {
 					ofLogVerbose("EmotiBitSession") << "Received PONG response for " << devId << " via AdvertisingChannelManager";
-					if (updateLastSeenCallback) {
-						updateLastSeenCallback(devId);
-					}
 				};
 
 				advertisingManager->sendPing(deviceId, ip, dataPort, pongCallback);
@@ -539,16 +545,24 @@ EmotiBitWiFiMultiHost::~EmotiBitWiFiMultiHost() {
 }
 
 int8_t EmotiBitWiFiMultiHost::begin() {
+	advertisingManager->setDeviceCleanupcallback([this](const std::string& deviceId) {
+		this->handleDeviceCleanup(deviceId);
+		});
 	advertisingManager->begin();
 	advertisingManager->startDiscovery();
+
+	
+
 	return SUCCESS;
 }
 
 void EmotiBitWiFiMultiHost::stop() {
 	advertisingManager->stopDiscovery();
+
 	std::lock_guard<std::mutex> lock(sessionsMutex);
 	for (auto& kv : sessions) kv.second->stop();
 	sessions.clear();
+
 	advertisingManager->stop();
 }
 
@@ -596,13 +610,9 @@ int8_t EmotiBitWiFiMultiHost::connect(const std::string& deviceId) {
 	int dataPort = ctrlPort +1;
 
 	ofLogNotice("EmotibitWiFiMultiHost") << "Connecting to " << deviceId << " at " << it->second.identifier.ip << " - Control: " << ctrlPort << ", Data: " << dataPort;
-	//Add call backs to update device info
-	auto callback = [this](const std::string& devId) {
-		this->updateDeviceLastSeen(devId);
-	};
 
 	try {
-		auto session = std::make_unique<EmotiBitSession>(deviceId, it->second.identifier.ip, settings, ctrlPort, dataPort, callback, advertisingManager.get());
+		auto session = std::make_unique<EmotiBitSession>(deviceId, it->second.identifier.ip, settings, ctrlPort, dataPort, advertisingManager.get());
 		auto handshakeCallback = [this, deviceId](const std::string& devId, bool success) {
 			if (success) {
 				ofLogNotice("EmotiBitWiFiMultiHost") << "Handshake completed successfully for " << devId;
@@ -693,9 +703,15 @@ void EmotiBitWiFiMultiHost::readControl(const std::string& deviceId, std::vector
 	}
 }
 
-void EmotiBitWiFiMultiHost::updateDeviceLastSeen(const std::string& deviceId)
-{
-	advertisingManager->updateDeviceLastSeen(deviceId);
+void EmotiBitWiFiMultiHost::handleDeviceCleanup(const std::string& deviceId) {
+	std::lock_guard<std::mutex> lock(sessionsMutex);
+	auto it = sessions.find(deviceId);
+	if (it != sessions.end()) {
+		ofLogNotice("EmotiBitWiFiMultiHost") << "Cleaning up session for timed out device: " << deviceId;
+		it->second->stop();
+		releasePortPair(it->second->getControlPort());
+		sessions.erase(it);
+	}
 }
 
 

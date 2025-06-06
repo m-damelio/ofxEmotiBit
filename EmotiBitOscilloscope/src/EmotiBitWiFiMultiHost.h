@@ -85,16 +85,16 @@ struct WiFiHostSettings {
 	int connectionTimeout = 50000;
 	int handshakeRetryInterval = 1000;
 	int pingInterval = 5000;
-	int deviceTimeoutMs = 60000;
+	int deviceTimeoutMs = 20000;
 };
 
 
 
 //Callback types
-using UpdateLastSeenCallback = std::function<void(const std::string& deviceId)>;
 using DiscoveryCallback = std::function<void(const std::string& deviceId, const EmotiBitInfo& info)>;
 using HandshakeResponseCallback = std::function<void(const std::string& deviceId, bool success)>;
 using PongCallback = std::function<void(const std::string& deviceId)>;
+using DeviceCleanupCallback = std::function<void(const std::string& deviceId)>;
 
 
 
@@ -121,6 +121,7 @@ public:
 	void updateDeviceLastSeen(const std::string& deviceId);
 	DeviceIdentifier resolveDeviceIdentifier(const std::string& rawDeviceId, const std::string& ip);
 	void cleanupDevice(const std::string& deviceId);
+	void setDeviceCleanupcallback(DeviceCleanupCallback callback) { cleanupCallback = callback; }
 
 private:
 	enum class AdvertisingMessageType {
@@ -157,7 +158,6 @@ private:
 	void processIncomingMessages();
 	void sendQueuedMessages();
 	void handleDiscoveryResponse(const std::string& packet, const std::string& senderIp);
-	void handleHandshakeResponse(const std::string& packet, const std::string& senderIp);
 	void handlePongResponse(const std::string& packet, const std::string& senderIp);
 	void cleanupTimedOutDevices();
 
@@ -190,6 +190,9 @@ private:
 	std::mutex pingCallbacksMutex;
 	std::unordered_map<std::string, PongCallback> pingCallbacks;
 
+	//Cleanup
+	DeviceCleanupCallback cleanupCallback;
+
 };
 
 class EmotiBitSession {
@@ -199,7 +202,6 @@ public:
 		const WiFiHostSettings& settings,
 		int controlPort,
 		int dataPort,
-		UpdateLastSeenCallback callback,
 		AdvertisingChannelManager* advManager);
 	~EmotiBitSession();
 
@@ -241,8 +243,6 @@ private:
 	std::vector<std::string> dataQueue;
 	std::vector<std::string> controlQueue;
 
-	UpdateLastSeenCallback updateLastSeenCallback;
-
 	AdvertisingChannelManager* advertisingManager;
 
 };
@@ -278,11 +278,9 @@ public:
 	int getSettingsTimeout();
 	WiFiHostSettings& getSettings() { return settings; }
 
-	//Device management
-	void updateDeviceLastSeen(const std::string& deviceId);
-
 	//Port management
 	int EmotiBitWiFiMultiHost::getNextAvailablePortPair() {
+		std::lock_guard<std::mutex> lock(portMutex);
 		int ctrlPort = baseControlPort;
 		while (usedPorts.count(ctrlPort) || usedPorts.count(ctrlPort + 1)) {
 			ctrlPort += 2;
@@ -292,19 +290,16 @@ public:
 		return ctrlPort;
 	}
 	void releasePortPair(int ctrlPort) {
-		std::thread([this, ctrlPort]() {
-			std::this_thread::sleep_for(std::chrono::seconds(5));
-			usedPorts.erase(ctrlPort);
-			usedPorts.erase(ctrlPort + 1);
-			}).detach();
+		std::lock_guard<std::mutex> lock(portMutex);
+		usedPorts.erase(ctrlPort);
+		usedPorts.erase(ctrlPort + 1);
 	}
 
 	static const uint8_t SUCCESS = 0;
 	static const uint8_t FAIL = -1;
 
 private:
-	void onHandshakeComplete(const std::string& deviceId, bool success);
-	void onPongReceived(const std::string& deviceId);
+	void handleDeviceCleanup(const std::string& deviceId);
 
 	WiFiHostSettings settings;
 	std::unique_ptr<AdvertisingChannelManager> advertisingManager;
@@ -314,14 +309,8 @@ private:
 
 	std::mutex sessionsMutex;
 	std::unordered_map<std::string, std::unique_ptr<EmotiBitSession>> sessions;
-	std::unordered_map<std::string, bool> pendingConnections;
 
-	//Ping management
-	std::mutex pingMutex;
-	std::unordered_map<std::string, bool> activePings;
-	std::thread pingThread;
-	std::atomic<bool> pingThreadActive;
-	void pingLoop();
-
+	std::mutex portMutex;
 	std::set<int> usedPorts;
+
 };
