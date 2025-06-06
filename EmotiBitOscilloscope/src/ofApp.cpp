@@ -354,20 +354,11 @@ void ofApp::drawDeviceList() {
 		ImGui::Separator();
 		ImGui::BulletText("Timeout settings: %d", wifiHost.getSettingsTimeout());
 		ImGui::Separator();
-		//ImGui::Text("Live Data for %s", selectedDevice.c_str());
-		ImGui::BeginChild("##deviceScopes", ImVec2(0, 0), true);
-		for (auto& devScopes : deviceScopes) {
-			const auto& devId = devScopes.first;
-			auto& scopes = devScopes.second;
-			if (ImGui::CollapsingHeader(devId.c_str()))
-			{
-				for (auto& ms : scopes) {
-					ms.plot();
-				}
-			}
-			
+		ImGui::Text("Live Data for %s", selectedDevice.c_str());
+		auto& scopes = deviceScopes[selectedDevice];
+		for (auto& ms : scopes) {
+			ms.plot();
 		}
-		ImGui::EndChild();
 		
 	}
 }
