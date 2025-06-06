@@ -462,7 +462,7 @@ void EmotiBitSession::rundDataLoop() {
 			std::string pkt(buf, sz);
 			std::lock_guard<std::mutex> lock(dataMutex);
 			dataQueue.push_back(pkt);
-			if (pkt.find("HR")) { ofLogNotice("EmotiBitSession") << "HR packet found"; }
+
 			static int packetCount = 0;
 			if (packetCount < 5)
 			{

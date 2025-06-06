@@ -1,11 +1,257 @@
-#include "ofApp22.h"
-#include "ofxBiquadFilter.h"
-#include <algorithm>
-#include "EmotiBitOfUtils.h"
+#pragma once
 
-#pragma region EmotiBitStuff
+#include "ofMain.h"
+#include "ofxOscilloscope.h"
+//#include "ofxNetwork.h"
+//#include "ofxNetworkUtils.h"
+#include "ofxThreadedLogger.h"
+#include "ofxGui.h"
+#include "ofxInputField.h"
+#include "ofxLSL.h"
+#include "DoubleBuffer.h"
+#include "EmotiBitPacket.h"
+#include "EmotiBitWiFiHost.h"
+#include "ofxEmotiBitVersion.h"
+#include "EmotiBitTestingHelper.h"
+#include "ofxOsc.h"
+#include "PatchboardJson.h"
+#include "PatchboardXml.h"
+#include "Periodizer.h"
+#include "ofxJSON.h"
+#include "SoftwareVersionChecker.h"
+#include "EmotiBitLsl.h"
+#include "ofxImGui.h"
+#include "FileLogger.cpp"
 
 
+class ofApp2 : public ofBaseApp {
+public:
+	void setup();
+	void update();
+	void draw();
+	void exit();
+	
+	void keyPressed(int key);
+	void keyReleased(int key);
+	void mouseMoved(int x, int y);
+	void mouseDragged(int x, int y, int button);
+	void mousePressed(int x, int y, int button);
+	void mouseReleased(int x, int y, int button);
+	void windowResized(int w, int h);
+	void dragEvent(ofDragInfo dragInfo);
+	void gotMessage(ofMessage msg);
+	void recordButtonPressed(bool & recording);
+	void sendExperimenterNoteButton();
+	template <class T>
+	vector<vector<vector<T>>> initBuffer(vector<vector<vector<T>>> buffer);
+	float smoother(float smoothData, float newData, float newDataWeight);
+	void deviceGroupSelection(ofAbstractParameter& device);
+	void powerModeSelection(ofAbstractParameter& mode);
+	void sendDataSelection(ofAbstractParameter& output);
+	void updateDeviceList();
+	void processSlowResponseMessage(string message);
+	void processSlowResponseMessage(vector<string> splitMessage);
+	void processAperiodicData(std::string signalId, std::vector<float> data);
+	string ofGetTimestampString(const string& timestampFormat); // Adds %f for microseconds
+	void setupGui();
+	void setupOscilloscopes();
+	void updateLsl();
+	void clearOscilloscopes(bool connectedDeviceUpdated);
+	void processModePacket(vector<string> &splitPacket);
+	void updateMenuButtons();
+	void drawConsole();
+	void drawOscilloscopes();
+	void addDataStream(std::string typetag);
+	void removeDataStream(std::string typetag);
+	void initMetaDataBuffers();
+	void resetScopePlot(int w, int s);
+	void setTypeTagPlotAttributes();
+	void resetIndexMapping();
+
+
+	// ToDo: This function is marked to be removed when we complete our move to xmlFileSettings.
+	void updatePlotAttributeLists(std::string settingsFile = "ofxOscilloscopeSettings.xml");
+	void updateTypeTagList();
+	string loadTextFile(string filePath);
+
+	bool startOscOutput();
+	bool startUdpOutput();
+
+	// Settings files
+	const string commSettingsFile = "emotibitCommSettings.json";
+	const string lslOutputSettingsFile = "lslOutputSettings.json";
+	const string udpOutputSettingsFile = "udpOutputSettings.xml";
+	const string oscOutputSettingsFile = "oscOutputSettings.xml";
+	string lslSettings;
+
+	ofxMultiScope scopeWin;
+
+	int counter;
+	int counter2;
+	ofPoint min;
+	ofPoint max;
+
+	int selectedScope;
+	float timeWindowOnSetup; // seconds
+	bool isPaused;
+	ofSerial mySerial;
+
+	string stringData;
+
+	ofxUDPManager udpConnection;
+	LoggerThread dataLogger;
+	LoggerThread consoleLogger;
+	bool logData;
+	bool logConsole;
+	ofTrueTypeFont legendFont;
+	ofTrueTypeFont axesFont;
+	ofTrueTypeFont subLegendFont;
+
+	EmotiBitWiFiHost emotiBitWiFi;
+
+	struct typeTagPlotAttr {
+		std::string plotName;
+		ofColor plotColor;
+		vector<int> scopeIdx;
+	};
+
+	PatchboardXml patchboard;
+	// ToDo: change the input aperiodic and ouptut periodic typeTags when we resolve typetags for aperiodic signals
+	// NOTE: New periodizers have to be added to the list below
+	std::vector<Periodizer> periodizerList{ Periodizer( EmotiBitPacket::TypeTag::HEART_RATE, 
+														EmotiBitPacket::TypeTag::PPG_INFRARED,
+														EmotiBitPacket::TypeTag::HEART_RATE) ,
+
+											Periodizer( EmotiBitPacket::TypeTag::SKIN_CONDUCTANCE_RESPONSE_AMPLITUDE,
+														EmotiBitPacket::TypeTag::EDA,
+														EmotiBitPacket::TypeTag::SKIN_CONDUCTANCE_RESPONSE_AMPLITUDE,
+														0),
+
+											Periodizer( EmotiBitPacket::TypeTag::SKIN_CONDUCTANCE_RESPONSE_RISE_TIME,
+														EmotiBitPacket::TypeTag::EDA,
+														EmotiBitPacket::TypeTag::SKIN_CONDUCTANCE_RESPONSE_RISE_TIME,
+														0)
+										  };
+	vector<ofxMultiScope> scopeWins;
+	unordered_map<int, vector<size_t>> plotIdIndexes;
+	vector<vector<vector<string>>> typeTags;
+	unordered_map<string, vector<int>> typeTagIndexes;
+	vector<vector<float>> samplingFreqs;
+	vector<vector<vector<string>>> plotNames;
+	vector<vector<vector<float>>> yLims;
+	vector<vector<float>> minYSpans;
+	vector<vector<vector<ofColor>>> plotColors;
+	unordered_map<std::string, typeTagPlotAttr>typeTagPlotAttributes;
+	vector<vector<vector<int>>> plotIds;
+
+	vector<vector<vector<int>>> bufferSizes;
+	vector<vector<vector<int>>> dataCounts;
+	vector<vector<vector<float>>> dataFreqs;
+	ofParameter<bool> recordingButton;
+	ofxLabel recordingStatus;
+	ofxLabel batteryStatus; 
+	ofxTextField userNote;
+	ofxButton sendUserNote;
+	ofParameter<int> dataClippingCount;
+	ofParameter<int> dataOverflowCount;
+	ofxLabel deviceSelected;
+	vector<ofParameter<bool>> deviceList;
+	ofParameterGroup deviceGroup;
+	// ToDo: encapsulate sendData variables to be more portable/usable
+	vector<string> sendDataOptions;
+	vector<ofParameter<bool>> sendDataList;
+	vector<bool> sendDataDisabled;
+	ofxLabel sendOptionSelected;
+	ofParameterGroup sendDataGroup;
+	ofParameterGroup powerModeGroup;
+	vector<string> powerModeOptions;
+	vector<ofParameter<bool>> powerModeList;
+
+	string _recordingFilename = "";
+
+	const string GUI_STRING_NOT_RECORDING = "NOT RECORDING";
+	const string GUI_STRING_RECORDING = "RECORDING";
+	const string GUI_STRING_MODE_HIBERNATE = "HIBERNATING";
+	const string GUI_STRING_MODE_ACTIVE = "ACTIVE";
+	const string GUI_STRING_NO_EMOTIBIT_SELECTED = "None Selected";
+	const string GUI_DEVICE_GROUP_NAME = "EmotiBit Device List";
+	const string GUI_STRING_CLIPPING_EVENTS = "Clipping Events:";
+	const string GUI_STRING_OVERFLOW_EVENTS = "Overflow Events:";
+	const string GUI_STRING_SEND_DATA_VIA = "Send data via";
+	const string GUI_OUTPUT_GROUP_NAME = "Output List";
+	const string GUI_STRING_SEND_DATA_NONE = "None";
+	const string GUI_STRING_SEND_DATA_LSL = "LSL";
+	const string GUI_STRING_SEND_DATA_OSC = "OSC";
+	const string GUI_STRING_SEND_DATA_MQTT = "MQTT";
+	const string GUI_STRING_SEND_DATA_TCP = "TCP";
+	const string GUI_STRING_SEND_DATA_UDP = "UDP";
+	const string GUI_STRING_NOTE_BUTTON = "LOG NOTE";
+	const string GUI_STRING_CONTROL_RECORD = "RECORD";
+	const string GUI_STRING_CONTROL_HIBERNATE = "HIBERNATE";
+	const string GUI_STRING_BATTERY_LEVEL = "Battery Level";
+	const string GUI_STRING_EMOTIBIT_SELECTED = "EmotiBit";
+	const string GUI_STRING_EMPTY_USER_NOTE = "[Add a note]";
+	const string GUI_POWER_MODE_GROUP_NAME = "Power Mode";
+	const char* GUI_STRING_NORMAL_POWER = "Normal power"; //         (data streaming)";
+	const char* GUI_STRING_LOW_POWER = "Low Power";//      (no streaming)";
+	const char* GUI_STRING_WIRELESS_OFF = "Wireless Off";
+	const char* GUI_STRING_HIBERNATE = "Sleep";
+
+	ofColor recordControlColor = ofColor(255, 69, 78);
+	ofColor hibernateControlColor = ofColor(10, 135, 210);
+	ofColor noteControlColor = ofColor(1, 204, 115);
+	ofColor deviceAvailableColor = ofColor(255, 255, 255);
+	ofColor notAvailableColor = ofColor(128, 128, 128);
+
+	int guiPanelDevice;
+	int guiPanelRecord;
+	int guiPanelPowerStatus;
+	int guiPanelErrors;
+	int guiPanelUserNote;
+	int guiPanelSendData;
+
+	int _consoleHeight;
+
+	vector<ofxPanel> guiPanels = vector<ofxPanel>(6); // OF v0.11.2 requires vector initialization to avoid "attempting to reference a deleted function" error
+
+	bool plotUdpData = true;
+	bool DEBUGGING = false;
+
+	int drawYTranslate = 0;
+	float drawYScale = 1.f;
+	uint32_t malformedMessages = 0;
+	uint32_t bufferUnderruns = 0;
+	uint16_t MAX_BUFFER_LENGTH = 64;
+	size_t messageLen = 0;
+
+	bool drawDataInfo = false;
+
+	int nDataClippingEvents = 0;
+	int nDataOverflowEvents = 0;
+
+	bool _recording = false;
+	EmotiBitTestingHelper _testingHelper;
+	enum class PowerMode {
+		HIBERNATE,
+		WIRELESS_OFF,					// fully shutdown wireless
+		MAX_LOW_POWER,	// data not sent, time-syncing accuracy low
+		LOW_POWER,			// data not sent, time-syncing accuracy high
+		NORMAL_POWER,				// data sending, time-syncing accuracy high
+		length
+	};
+	EmotibitInfo::PowerMode _powerMode = EmotibitInfo::PowerMode::LOW_POWER;
+
+	// ToDo: generalize patchboard management
+	PatchboardXml oscPatchboard;
+	ofxOscSender oscSender;
+	bool sendOsc = false; // ToDo: generalize sendOsc to sendData
+
+	PatchboardXml udpPatchboard;
+	ofxUDPManager udpSender;
+	bool sendUdp = false; // ToDo: generalize sendOsc to sendData
+	
+	EmotiBitLsl emotibitLsl;
+	bool sendLsl = false;
 
 
 void ofApp2::setup() {
@@ -1812,1249 +2058,3 @@ bool ofApp2::startUdpOutput()
 
 	return false;
 }
-#pragma endregion
-
-#pragma region NewGuiStuff
-
-void ofApp2::setup(){
-	ofLogToConsole();
-	ofSetLoggerChannel(std::make_shared<FileLogger>("log.txt"));
-#ifdef TARGET_MAC_OS
-	ofSetDataPathRoot("../Resources/");
-	cout << "Changed the data pathroot for macOS." << endl;
-#endif
-	ofSetFrameRate(30);
-	//ofBackground(255, 255, 255);
-	//SoftwareVersionChecker::checkLatestVersion();
-	ofSetLogLevel(OF_LOG_NOTICE);
-	setTypeTagPlotAttributes2();
-
-	string commSettings = loadTextFile(commSettingsFile);
-	emotiBitWiFi.parseCommSettings(commSettings);
-
-	emotiBitWiFi.begin2();
-	timeWindowOnSetup = 10;
-
-	logData = true;
-	logConsole = true;
-	dataLogger.setFilename("dataLog.txt");
-	if (logData)
-	{
-		dataLogger.startThread();
-	}
-	consoleLogger.setFilename("consoleLog.txt");
-	if (logConsole)
-	{
-		consoleLogger.startThread();
-	}
-
-	newGui.setup();
-	setupOscilloscopes2();
-
-	selectedTimeSlot = 5;
-	customTimeSlot = 5;
-	testCount = 0;
-	discoveredDevices = emotiBitWiFi.getdiscoveredEmotibits();
-
-	// set log level to FATAL_ERROR to remove unrelated LSL error overflow in the console
-	//ofSetLogLevel(OF_LOG_FATAL_ERROR);
-}
-
-void ofApp2::setupOscilloscopes2()
-{
-	// read the patchboard file
-	if (patchboard.loadFile(ofToDataPath("inputSettings.xml")))
-	{
-		ofLog(OF_LOG_NOTICE, "PatchBoard succesfully loaded");
-	}
-	else
-	{
-		ofLog(OF_LOG_NOTICE, "PatchBoard File Not Found!");
-		while (1);
-	}
-	ofFile scopeSettingsFile(ofToDataPath("ofxOscilloscopeSettings.xml"));
-	// check if oscilloscope settings file exists
-	if (scopeSettingsFile.exists())
-	{
-		scopeWins0 = ofxMultiScope::loadScopeSettings();
-		scopeWins1 = ofxMultiScope::loadScopeSettings();
-		scopeWins2 = ofxMultiScope::loadScopeSettings();
-		scopeWins3 = ofxMultiScope::loadScopeSettings();
-		//This assumes that the width/height of both multiscopes is the same
-		for (int i = 0; i < scopeWins0.size(); i++)
-		{
-			auto position = scopeWins0[i].getPosition();
-			auto position2 = position;
-			position.setX(position.getX() + position.getWidth() * 2);
-			scopeWins1[i].setPosition(position);
-
-			position2.setY(position2.getY() + position2.getHeight());
-			scopeWins2[i].setPosition(position2);
-
-			position.setY(position2.getY());
-			scopeWins3[i].setPosition(position);
-		}
-	}
-	else
-	{
-		ofLog(OF_LOG_NOTICE, "Scope Settings File Not Found!");
-		while (1);
-	}
-	plotIds0 = ofxMultiScope::getPlotIds();
-	plotIds1 = ofxMultiScope::getPlotIds();
-	plotIds2 = ofxMultiScope::getPlotIds();
-	plotIds3 = ofxMultiScope::getPlotIds();
-	updatePlotAttributeLists2();
-	updateTypeTagList2();
-	initMetaDataBuffers2();
-}
-
-void ofApp2::setTypeTagPlotAttributes2()
-{
-	// ToDo: Add attributes for all streams for refactor
-	// Note:: THERM plot attributes only live in code. we should move it to the XML file some day
-	{
-		// Add plot attributes for THERMOPILE data
-		typeTagPlotAttr attr;
-		attr.plotName = "THERM";
-		attr.plotColor = ofColor(239, 97, 82);
-		// ToDo: someday, we can even consider a standard layout considering even plot number p -> {w,s,p}
-		std::vector<int> sIdx = { 1, 3 };  // {window, scope}
-		attr.scopeIdx = sIdx;
-		typeTagPlotAttributes0.emplace(EmotiBitPacket::TypeTag::THERMOPILE, attr);
-		typeTagPlotAttributes1.emplace(EmotiBitPacket::TypeTag::THERMOPILE, attr);
-		typeTagPlotAttributes2.emplace(EmotiBitPacket::TypeTag::THERMOPILE, attr);
-		typeTagPlotAttributes3.emplace(EmotiBitPacket::TypeTag::THERMOPILE, attr);
-	}
-
-	{
-		// Plot Attributes for TEMP1 data
-		typeTagPlotAttr attr;
-		attr.plotName = "TEMP1";
-		attr.plotColor = ofColor(234, 174, 68);
-		std::vector<int> sIdx = { 1, 3 };  // {window, scope}
-		attr.scopeIdx = sIdx;
-		typeTagPlotAttributes0.emplace(EmotiBitPacket::TypeTag::TEMPERATURE_1, attr);
-		typeTagPlotAttributes1.emplace(EmotiBitPacket::TypeTag::TEMPERATURE_1, attr);
-		typeTagPlotAttributes2.emplace(EmotiBitPacket::TypeTag::TEMPERATURE_1, attr);
-		typeTagPlotAttributes3.emplace(EmotiBitPacket::TypeTag::TEMPERATURE_1, attr);
-	}
-}
-void ofApp2::updatePlotAttributeLists2(std::string settingsFile)
-{
-	//same as updatePlotAttributeList but for the variables variableName0-3 (e.g. samplingFreqs0, samplingFreqs1, samlingFreqs2, samlingFreqs3 instead of only samplingFreqs
-	ofxXmlSettings scopeSettings;
-	scopeSettings.loadFile(settingsFile);
-
-	int nMultiScopes = scopeSettings.getNumTags("multiScope");
-	samplingFreqs0.resize(nMultiScopes);
-	minYSpans0.resize(nMultiScopes);
-	plotNames0.resize(nMultiScopes);
-	plotColors0.resize(nMultiScopes);
-	yLims0.resize(nMultiScopes);
-	for (int m = 0; m < nMultiScopes; m++)
-	{
-		scopeSettings.pushTag("multiScope", m);
-		int nScopes = scopeSettings.getNumTags("scope");
-		samplingFreqs0.at(m).resize(nScopes);
-		minYSpans0.at(m).resize(nScopes);
-		plotNames0.at(m).resize(nScopes);
-		plotColors0.at(m).resize(nScopes);
-		yLims0.at(m).resize(nScopes);
-		for (int s = 0; s < nScopes; s++)
-		{
-			scopeSettings.pushTag("scope", s);
-			//float timeWindow = scopeSettings.getValue("timeWindow", 15.f); // maybe we keep this.
-			float samplingFrequency = scopeSettings.getValue("samplingFrequency", 15.f);
-			float minYSpan = scopeSettings.getValue("minYSpan", 0.f);
-			float yMin = scopeSettings.getValue("yMin", 0.f);
-			float yMax = scopeSettings.getValue("yMax", 0.f);
-			samplingFreqs0.at(m).at(s) = samplingFrequency;
-			minYSpans0.at(m).at(s) = minYSpan;
-			vector<float> yLim = { yMin, yMax };
-			yLims0.at(m).at(s) = yLim;
-			//samplingFreqs-2D vector
-			//minYSpans-2D vector
-			//plotNames-3D vector
-			//plotColors-3D vector
-			//yLims-3D vector
-			int nPlots = scopeSettings.getNumTags("plot");
-			for (int p = 0; p < nPlots; p++) {
-				scopeSettings.pushTag("plot", p);
-				plotNames0.at(m).at(s).push_back(scopeSettings.getValue("plotName", "N/A"));
-				scopeSettings.pushTag("plotColor");
-				plotColors0.at(m).at(s).push_back(ofColor(
-					scopeSettings.getValue("r", 255),
-					scopeSettings.getValue("g", 255),
-					scopeSettings.getValue("b", 255)
-				));
-				scopeSettings.popTag(); // plotColor
-				scopeSettings.popTag(); // plot p
-			}
-			scopeSettings.popTag(); // scope s
-		}
-
-		scopeSettings.popTag(); // multiScope m
-	}
-
-	scopeSettings.loadFile(settingsFile);
-	nMultiScopes = scopeSettings.getNumTags("multiScope");
-	samplingFreqs1.resize(nMultiScopes);
-	minYSpans1.resize(nMultiScopes);
-	plotNames1.resize(nMultiScopes);
-	plotColors1.resize(nMultiScopes);
-	yLims1.resize(nMultiScopes);
-	for (int m = 0; m < nMultiScopes; m++)
-	{
-		scopeSettings.pushTag("multiScope", m);
-		int nScopes = scopeSettings.getNumTags("scope");
-		samplingFreqs1.at(m).resize(nScopes);
-		minYSpans1.at(m).resize(nScopes);
-		plotNames1.at(m).resize(nScopes);
-		plotColors1.at(m).resize(nScopes);
-		yLims1.at(m).resize(nScopes);
-		for (int s = 0; s < nScopes; s++)
-		{
-			scopeSettings.pushTag("scope", s);
-			//float timeWindow = scopeSettings.getValue("timeWindow", 15.f); // maybe we keep this.
-			float samplingFrequency = scopeSettings.getValue("samplingFrequency", 15.f);
-			float minYSpan = scopeSettings.getValue("minYSpan", 0.f);
-			float yMin = scopeSettings.getValue("yMin", 0.f);
-			float yMax = scopeSettings.getValue("yMax", 0.f);
-			samplingFreqs1.at(m).at(s) = samplingFrequency;
-			minYSpans1.at(m).at(s) = minYSpan;
-			vector<float> yLim = { yMin, yMax };
-			yLims1.at(m).at(s) = yLim;
-			//samplingFreqs-2D vector
-			//minYSpans-2D vector
-			//plotNames-3D vector
-			//plotColors-3D vector
-			//yLims-3D vector
-			int nPlots = scopeSettings.getNumTags("plot");
-			for (int p = 0; p < nPlots; p++) {
-				scopeSettings.pushTag("plot", p);
-				plotNames1.at(m).at(s).push_back(scopeSettings.getValue("plotName", "N/A"));
-				scopeSettings.pushTag("plotColor");
-				plotColors1.at(m).at(s).push_back(ofColor(
-					scopeSettings.getValue("r", 255),
-					scopeSettings.getValue("g", 255),
-					scopeSettings.getValue("b", 255)
-				));
-				scopeSettings.popTag(); // plotColor
-				scopeSettings.popTag(); // plot p
-			}
-			scopeSettings.popTag(); // scope s
-		}
-
-		scopeSettings.popTag(); // multiScope m
-	}
-
-	scopeSettings.loadFile(settingsFile);
-	nMultiScopes = scopeSettings.getNumTags("multiScope");
-	samplingFreqs2.resize(nMultiScopes);
-	minYSpans2.resize(nMultiScopes);
-	plotNames2.resize(nMultiScopes);
-	plotColors2.resize(nMultiScopes);
-	yLims2.resize(nMultiScopes);
-	for (int m = 0; m < nMultiScopes; m++)
-	{
-		scopeSettings.pushTag("multiScope", m);
-		int nScopes = scopeSettings.getNumTags("scope");
-		samplingFreqs2.at(m).resize(nScopes);
-		minYSpans2.at(m).resize(nScopes);
-		plotNames2.at(m).resize(nScopes);
-		plotColors2.at(m).resize(nScopes);
-		yLims2.at(m).resize(nScopes);
-		for (int s = 0; s < nScopes; s++)
-		{
-			scopeSettings.pushTag("scope", s);
-			float samplingFrequency = scopeSettings.getValue("samplingFrequency", 15.f);
-			float minYSpan = scopeSettings.getValue("minYSpan", 0.f);
-			float yMin = scopeSettings.getValue("yMin", 0.f);
-			float yMax = scopeSettings.getValue("yMax", 0.f);
-			samplingFreqs2.at(m).at(s) = samplingFrequency;
-			minYSpans2.at(m).at(s) = minYSpan;
-			vector<float> yLim = { yMin, yMax };
-			yLims2.at(m).at(s) = yLim;
-			int nPlots = scopeSettings.getNumTags("plot");
-			for (int p = 0; p < nPlots; p++) {
-				scopeSettings.pushTag("plot", p);
-				plotNames2.at(m).at(s).push_back(scopeSettings.getValue("plotName", "N/A"));
-				scopeSettings.pushTag("plotColor");
-				plotColors2.at(m).at(s).push_back(ofColor(
-					scopeSettings.getValue("r", 255),
-					scopeSettings.getValue("g", 255),
-					scopeSettings.getValue("b", 255)
-				));
-				scopeSettings.popTag(); // plotColor
-				scopeSettings.popTag(); // plot p
-			}
-			scopeSettings.popTag(); // scope s
-		}
-		scopeSettings.popTag(); // multiScope m
-	}
-
-	scopeSettings.loadFile(settingsFile);
-	nMultiScopes = scopeSettings.getNumTags("multiScope");
-	samplingFreqs3.resize(nMultiScopes);
-	minYSpans3.resize(nMultiScopes);
-	plotNames3.resize(nMultiScopes);
-	plotColors3.resize(nMultiScopes);
-	yLims3.resize(nMultiScopes);
-	for (int m = 0; m < nMultiScopes; m++)
-	{
-		scopeSettings.pushTag("multiScope", m);
-		int nScopes = scopeSettings.getNumTags("scope");
-		samplingFreqs3.at(m).resize(nScopes);
-		minYSpans3.at(m).resize(nScopes);
-		plotNames3.at(m).resize(nScopes);
-		plotColors3.at(m).resize(nScopes);
-		yLims3.at(m).resize(nScopes);
-		for (int s = 0; s < nScopes; s++)
-		{
-			scopeSettings.pushTag("scope", s);
-			//float timeWindow = scopeSettings.getValue("timeWindow", 15.f); // maybe we keep this.
-			float samplingFrequency = scopeSettings.getValue("samplingFrequency", 15.f);
-			float minYSpan = scopeSettings.getValue("minYSpan", 0.f);
-			float yMin = scopeSettings.getValue("yMin", 0.f);
-			float yMax = scopeSettings.getValue("yMax", 0.f);
-			samplingFreqs3.at(m).at(s) = samplingFrequency;
-			minYSpans3.at(m).at(s) = minYSpan;
-			vector<float> yLim = { yMin, yMax };
-			yLims3.at(m).at(s) = yLim;
-			//samplingFreqs-2D vector
-			//minYSpans-2D vector
-			//plotNames-3D vector
-			//plotColors-3D vector
-			//yLims-3D vector
-			int nPlots = scopeSettings.getNumTags("plot");
-			for (int p = 0; p < nPlots; p++) {
-				scopeSettings.pushTag("plot", p);
-				plotNames3.at(m).at(s).push_back(scopeSettings.getValue("plotName", "N/A"));
-				scopeSettings.pushTag("plotColor");
-				plotColors3.at(m).at(s).push_back(ofColor(
-					scopeSettings.getValue("r", 255),
-					scopeSettings.getValue("g", 255),
-					scopeSettings.getValue("b", 255)
-				));
-				scopeSettings.popTag(); // plotColor
-				scopeSettings.popTag(); // plot p
-			}
-			scopeSettings.popTag(); // scope s
-		}
-
-		scopeSettings.popTag(); // multiScope m
-	}
-}
-void ofApp2::updateTypeTagList2()
-{
-	//same as updateTypeTagList but for 4 instances (e.g. plotIds0-3 instead of only plotIds)
-
-	for (int i = 0; i < plotIds0.size(); i++)// for multiscopes
-	{
-		vector<vector<std::string>> scopeTypeTagList;
-		for (int j = 0; j < plotIds0.at(i).size(); j++) // for scopes
-		{
-			vector<std::string> plotTypeTagList;
-			for (int k = 0; k < plotIds0.at(i).at(j).size(); k++) // for plots
-			{
-				for (auto key = patchboard.patchcords.begin(); key != patchboard.patchcords.end(); key++)
-				{
-					// for each plot plotId, get the typeTag
-					// ToDo: there should be a loop here to go through all map values for a key. In case, the same signal is patched to multiple scopes
-					if (ofToInt(key->second.back()) == plotIds0.at(i).at(j).at(k))
-					{
-						plotTypeTagList.push_back(key->first);
-					}
-				}
-			}
-			scopeTypeTagList.push_back(plotTypeTagList);
-		}
-		typeTags0.push_back(scopeTypeTagList);
-	}
-
-	// Create an index mapping for each type tag
-	for (int w = 0; w < typeTags0.size(); w++) {
-		for (int s = 0; s < typeTags0.at(w).size(); s++) {
-			for (int p = 0; p < typeTags0.at(w).at(s).size(); p++) {
-				vector<int> indexes{ w, s, p };
-				typeTagIndexes0.emplace(typeTags0.at(w).at(s).at(p), indexes);
-			}
-		}
-	}
-
-	for (int i = 0; i < plotIds1.size(); i++)// for multiscopes
-	{
-		vector<vector<std::string>> scopeTypeTagList;
-		for (int j = 0; j < plotIds1.at(i).size(); j++) // for scopes
-		{
-			vector<std::string> plotTypeTagList;
-			for (int k = 0; k < plotIds1.at(i).at(j).size(); k++) // for plots
-			{
-				for (auto key = patchboard.patchcords.begin(); key != patchboard.patchcords.end(); key++)
-				{
-					// for each plot plotId, get the typeTag
-					// ToDo: there should be a loop here to go through all map values for a key. In case, the same signal is patched to multiple scopes
-					if (ofToInt(key->second.back()) == plotIds1.at(i).at(j).at(k))
-					{
-						plotTypeTagList.push_back(key->first);
-					}
-				}
-			}
-			scopeTypeTagList.push_back(plotTypeTagList);
-		}
-		typeTags1.push_back(scopeTypeTagList);
-	}
-
-	// Create an index mapping for each type tag
-	for (int w = 0; w < typeTags1.size(); w++) {
-		for (int s = 0; s < typeTags1.at(w).size(); s++) {
-			for (int p = 0; p < typeTags1.at(w).at(s).size(); p++) {
-				vector<int> indexes{ w, s, p };
-				typeTagIndexes1.emplace(typeTags1.at(w).at(s).at(p), indexes);
-			}
-		}
-	}
-
-	for (int i = 0; i < plotIds2.size(); i++)// for multiscopes
-	{
-		vector<vector<std::string>> scopeTypeTagList;
-		for (int j = 0; j < plotIds2.at(i).size(); j++) // for scopes
-		{
-			vector<std::string> plotTypeTagList;
-			for (int k = 0; k < plotIds2.at(i).at(j).size(); k++) // for plots
-			{
-				for (auto key = patchboard.patchcords.begin(); key != patchboard.patchcords.end(); key++)
-				{
-					// for each plot plotId, get the typeTag
-					// ToDo: there should be a loop here to go through all map values for a key. In case, the same signal is patched to multiple scopes
-					if (ofToInt(key->second.back()) == plotIds2.at(i).at(j).at(k))
-					{
-						plotTypeTagList.push_back(key->first);
-					}
-				}
-			}
-			scopeTypeTagList.push_back(plotTypeTagList);
-		}
-		typeTags2.push_back(scopeTypeTagList);
-	}
-
-	// Create an index mapping for each type tag
-	for (int w = 0; w < typeTags2.size(); w++) {
-		for (int s = 0; s < typeTags2.at(w).size(); s++) {
-			for (int p = 0; p < typeTags2.at(w).at(s).size(); p++) {
-				vector<int> indexes{ w, s, p };
-				typeTagIndexes2.emplace(typeTags2.at(w).at(s).at(p), indexes);
-			}
-		}
-	}
-
-	for (int i = 0; i < plotIds3.size(); i++)// for multiscopes
-	{
-		vector<vector<std::string>> scopeTypeTagList;
-		for (int j = 0; j < plotIds3.at(i).size(); j++) // for scopes
-		{
-			vector<std::string> plotTypeTagList;
-			for (int k = 0; k < plotIds3.at(i).at(j).size(); k++) // for plots
-			{
-				for (auto key = patchboard.patchcords.begin(); key != patchboard.patchcords.end(); key++)
-				{
-					// for each plot plotId, get the typeTag
-					// ToDo: there should be a loop here to go through all map values for a key. In case, the same signal is patched to multiple scopes
-					if (ofToInt(key->second.back()) == plotIds3.at(i).at(j).at(k))
-					{
-						plotTypeTagList.push_back(key->first);
-					}
-				}
-			}
-			scopeTypeTagList.push_back(plotTypeTagList);
-		}
-		typeTags3.push_back(scopeTypeTagList);
-	}
-
-	// Create an index mapping for each type tag
-	for (int w = 0; w < typeTags3.size(); w++) {
-		for (int s = 0; s < typeTags3.at(w).size(); s++) {
-			for (int p = 0; p < typeTags3.at(w).at(s).size(); p++) {
-				vector<int> indexes{ w, s, p };
-				typeTagIndexes3.emplace(typeTags3.at(w).at(s).at(p), indexes);
-			}
-		}
-	}
-}
-void ofApp2::initMetaDataBuffers2()
-{
-	//should work the same as initMetaDataBuffers but for 4 instances instead of 1
-	bufferSizes0 = initBuffer2(bufferSizes0,0);
-	dataCounts0 = initBuffer2(dataCounts0,0);
-	dataFreqs0 = initBuffer2(dataFreqs0,0);
-	bufferSizes1 = initBuffer2(bufferSizes1, 1);
-	dataCounts1 = initBuffer2(dataCounts1, 1);
-	dataFreqs1 = initBuffer2(dataFreqs1, 1);
-	bufferSizes2 = initBuffer2(bufferSizes2, 2);
-	dataCounts2 = initBuffer2(dataCounts2, 2);
-	dataFreqs2 = initBuffer2(dataFreqs2, 2);
-	bufferSizes3 = initBuffer2(bufferSizes3, 3);
-	dataCounts3 = initBuffer2(dataCounts3, 3);
-	dataFreqs3 = initBuffer2(dataFreqs3, 3);
-}
-template <class T2>
-vector<vector<vector<T2>>> ofApp2::initBuffer2(vector<vector<vector<T2>>> buffer,int index) {
-	//should work the same as initBuffers but for 4 instances instead of 1 (searches or the right pointer by index (since only 4 instances of the necessary variables should exist)
-	vector<vector<vector<string>>>* typeTagsIndexPointer;
-	switch (index)
-	{
-		case 0: typeTagsIndexPointer = &typeTags0; break;
-		case 1: typeTagsIndexPointer = &typeTags1; break;
-		case 2: typeTagsIndexPointer = &typeTags2; break;
-		case 3: typeTagsIndexPointer = &typeTags3; break;
-		default: return buffer;
-	}
-	buffer.resize((*typeTagsIndexPointer).size());
-	for (int w = 0; w < (*typeTagsIndexPointer).size(); w++) {
-		buffer.at(w).resize((*typeTagsIndexPointer).at(w).size());
-		for (int s = 0; s < (*typeTagsIndexPointer).at(w).size(); s++) {
-			buffer.at(w).at(s).resize((*typeTagsIndexPointer).at(w).at(s).size());
-			for (int p = 0; p < (*typeTagsIndexPointer).at(w).at(s).size(); p++) {
-				buffer.at(w).at(s).at(p) = 0;
-			}
-		}
-	}
-	return buffer;
-}
-
-void ofApp2::draw() {
-	newGui.begin();
-	drawNewGui();
-	newGui.end();
-}
-
-void ofApp2::update()
-{
-	/*
-	if (recordButtonPressedNew)
-	{
-		for(auto it = discoveredDevices.begin(); it != discoveredDevices.end(); it++)
-		{
-			string deviceId = it->first;
-			it->second.isRecording = true;
-		}
-		recordButtonPressedNew = false;
-	}
-	*/
-	//emotiBitWiFi.processAdvertisingThread();
-	discoveredDevices = emotiBitWiFi.getDiscoveredEmotibitsPointer();
-	unordered_map<string, vector<string>> devicePackets = emotiBitWiFi.getAllDeviceDataPackets();
-
-
-	for (auto& entry : devicePackets)
-	{
-		string deviceId = entry.first;
-		for (auto& packet : entry.second)
-		{
-			vector<string> splitPacket = ofSplitString(packet, ",");
-			processSlowResponseMessage2(deviceId, splitPacket);
-			if (logData)
-			{
-				dataLogger.push(packet + "\n");
-			}
-		}
-	}
-	
-	updateDeviceList2();
-}
-
-void ofApp2::drawNewGui() 
-{
-	//Left panel: device list
-	if (ImGui::Begin("Devices", nullptr, ImGuiWindowFlags_NoCollapse)){
-
-		ImGui::BeginChild("Header", ImVec2(columnWidth * 7, 30), true, ImGuiWindowFlags_NoScrollbar);
-		{
-			ImGui::SetCursorPosX(0);
-			centeredText("Device names", columnWidth);
-			ImGui::SameLine();
-
-			ImGui::SetCursorPosX(columnWidth);
-			centeredText("Battery", columnWidth);
-			ImGui::SameLine();
-
-			ImGui::SetCursorPosX(columnWidth*2);
-			if (ImGui::Button("PowerMode", ImVec2(columnWidth, 0)))
-			{
-				ImGui::OpenPopup("PowerModeDropDown");
-			}
-			ImGui::SameLine();
-
-			ImGui::SetCursorPosX(columnWidth*3);
-			centeredText("Clipping count", columnWidth);
-			ImGui::SameLine();
-
-			ImGui::SetCursorPosX(columnWidth * 4);
-			centeredText("Overflow count", columnWidth);
-			ImGui::SameLine();
-
-			ImGui::SetCursorPosX(columnWidth * 5);
-			centeredText("SD File", columnWidth);
-			ImGui::SameLine();
-
-			ImGui::SetCursorPosX(columnWidth * 6);
-			centeredText("Connect to EmotiBit", columnWidth);
-			
-		}
-		
-		if (ImGui::BeginPopup("PowerModeDropDown"))
-		{
-			//TODO: Set selected power mode to selected emotibits
-			if (ImGui::Selectable(GUI_STRING_HIBERNATE))
-			{
-				ImGui::CloseCurrentPopup();
-			}
-			if (ImGui::Selectable(GUI_STRING_LOW_POWER))
-			{
-				ImGui::CloseCurrentPopup();
-			}
-			if (ImGui::Selectable(GUI_STRING_NORMAL_POWER))
-			{
-				ImGui::CloseCurrentPopup();
-			}
-			if (ImGui::Selectable(GUI_STRING_WIRELESS_OFF))
-			{
-				ImGui::CloseCurrentPopup();
-			}
-			ImGui::EndPopup();
-		}
-		ImGui::EndChild();
-		
-		//Select all button
-		if (ImGui::Button("Select All"))
-		{
-			for (auto& device : discoveredDevices)
-			{
-				device.second.isSelected = !device.second.isSelected;
-			}
-		}
-		ImGui::Separator();
-
-		//list devices
-		ImGui::BeginChild("Device List", ImVec2(columnWidth * 7, 0), false);
-
-		for (auto it = discoveredDevices.begin(); it != discoveredDevices.end(); it++)
-		{
-			
-			string deviceId = it->first;
-			EmotibitInfo& deviceInfo = it->second;
-			
-			ImGui::PushID(deviceId.c_str());
-			uniqueIds.insert(deviceId);
-
-			ImGui::SetCursorPosX(0);
-			if (ImGui::Checkbox(deviceId.c_str(), &deviceInfo.isSelected))
-			{
-
-			}
-			ImGui::SameLine();
-
-			ImGui::SetCursorPosX(columnWidth);
-			centeredText(("%s", deviceInfo.currentBatteryStatus).c_str(), columnWidth);
-			ImGui::SameLine();
-
-			ImGui::SetCursorPosX(columnWidth * 2);
-			centeredText(("%s", stringifyPowerMode(deviceInfo.currentPowerMode)), columnWidth);
-			ImGui::SameLine();
-
-			ImGui::SetCursorPosX(columnWidth * 3);
-			std::stringstream stc;
-			stc << deviceInfo.clippingCount;
-			centeredText(stc.str(), columnWidth);
-			ImGui::SameLine();
-
-			ImGui::SetCursorPosX(columnWidth * 4);
-			std::stringstream sto;
-			sto << deviceInfo.overflowCount;
-			centeredText(sto.str(), columnWidth);
-			ImGui::SameLine();
-
-			ImGui::SetCursorPosX(columnWidth * 5);
-			centeredText(("%s", deviceInfo.isRecording ? ("Recording to %s",deviceInfo.recordingFileName) : "Idle"), columnWidth);
-			ImGui::SameLine();
-
-			ImGui::SetCursorPosX(columnWidth * 6);
-			if (ImGui::Checkbox("Connected?", &deviceInfo.userWantsToConnect))
-			{
-				
-			}
-			if (!deviceInfo.isConnected && deviceInfo.userWantsToConnect)
-			{
-				connectToDevice(deviceId);
-				emotiBitWiFi.pauseDataReception(deviceId, false);
-				testCount = 1;
-			} 
-			else if (deviceInfo.isConnected && !deviceInfo.userWantsToConnect)
-			{
-				emotiBitWiFi.pauseDataReception(deviceId, true);
-				deviceInfo.isConnected = false;
-				testCount = 2;
-			}
-			else if (!deviceInfo.isConnected && !deviceInfo.userWantsToConnect)
-			{
-				testCount = 3;
-			}
-			ImGui::PopID();
-		}
-		ImGui::EndChild();
-		ImGui::End();	
-	}
-
-	//right panel: controls & oscilloscope
-	if (ImGui::Begin("Recording Control", nullptr, ImGuiWindowFlags_NoCollapse))
-	{
-		//time slot selection
-		ImGui::Text("Time Slot Selection (mins):");
-		if (ImGui::RadioButton("5", selectedTimeSlot == 5)) { selectedTimeSlot = 5; }
-		ImGui::SameLine();
-		if (ImGui::RadioButton("10", selectedTimeSlot == 10)) { selectedTimeSlot = 10; }
-		ImGui::SameLine();
-		if (ImGui::RadioButton("15", selectedTimeSlot == 15)) { selectedTimeSlot = 15; }
-		ImGui::SameLine();
-		if (ImGui::RadioButton("Custom", selectedTimeSlot == 0)) { selectedTimeSlot = 0; }
-		if (selectedTimeSlot == 0) {
-			ImGui::InputInt("Custom time slot (mins)", &customTimeSlot);
-		}
-		else
-		{
-			ImGui::Text("Selected time slot == %d",selectedTimeSlot);
-		}
-		
-		//Record button
-		if (ImGui::Button("Record")) 
-		{
-			recordButtonPressedNew = true;
-			//TODO: Trigger recording on all devices
-		}
-		ImGui::End();
-	}
-
-	if (ImGui::Begin("Oscilloscope Control", nullptr, ImGuiWindowFlags_NoCollapse))
-	{
-		float width = 220.f;
-		static std::vector<int> selectedIndices(4, -1);
-		std::vector<std::string> names;
-		for (const auto& pair : discoveredDevices)
-		{
-			names.push_back(pair.first);
-		}
-
-		//Draws 4 dropdowns to choose which device to plot for which plot j
-		for (int j = 0; j < 4; j++)
-		{
-			ImGui::PushID(j);
-			std::string comboLabel = "##DropDown" + std::to_string(j);
-			std::string selectionDefaultLabel = "Select EmotiBit for plot " + std::to_string(j+1);
-			std::string currentSelection = (selectedIndices[j] >= 0) ? names[selectedIndices[j]] : selectionDefaultLabel;
-
-			ImGui::SetCursorPosX((j%2)*width);
-			ImGui::SetNextItemWidth(width);
-			if (ImGui::BeginCombo(comboLabel.c_str(), currentSelection.c_str()))
-			{
-				int index = 0;
-				for (auto it = discoveredDevices.begin(); it != discoveredDevices.end(); it++)
-				{
-					if (selectedIndices[j] != index && it->second.showPlot)
-					{
-						index++;
-						continue;
-					}
-					string deviceId = it->first;
-					bool isSelected = (selectedIndices[j] == index);
-					if (ImGui::Selectable(deviceId.c_str(), isSelected))
-					{
-						if (selectedIndices[j] != index)
-						{
-							//If a different emotibit in this dropdown was selected, take name from name list and turn off plot showing flag, change oscilloscopeIndex to -1 (which means this device will not be plotted to oscilloscope 1,2,3 or 4)
-							if (selectedIndices[j] != -1)
-							{
-								const std::string& oldSelection = names[selectedIndices[j]];
-								discoveredDevices[oldSelection].showPlot = false;
-								oscilloscopeIndex[oldSelection] = -1;
-								clearOscilloscopes(j);
-							}
-							it->second.showPlot = true;
-							selectedIndices[j] = index;
-							oscilloscopeIndex[deviceId] = j;
-						}
-						else
-						{
-							//Toggling same emotibit
-							it->second.showPlot = false;
-							selectedIndices[j] = -1;
-							oscilloscopeIndex[deviceId] = -1;
-							clearOscilloscopes(j);
-						}
-					}
-					if (isSelected)
-					{
-						ImGui::SetItemDefaultFocus();
-					}
-					index++;	
-				}
-				ImGui::EndCombo();
-			}
-			if (j == 0 || j == 2) ImGui::SameLine();
-			ImGui::PopID();
-			
-		}
-		drawOscilloscopes2();
-
-		ImGui::End();
-	}
-
-	if (ImGui::Begin("Test Case Control", nullptr, ImGuiWindowFlags_NoCollapse))
-	{
-		ImGui::Text("We are in case: %d", testCount);
-		for (const auto& pair : discoveredDevices)
-		{
-			string deviceId = pair.first;
-			ImGui::Text("This is the deviceInfo for %s: isAvailable = %s, isConnected = %s, isRecording = %s, isSelected = %s, Shows Plot = %s, UserWantsToConnect = %s", deviceId.c_str(),
-				pair.second.isAvailable ? "True" : "False",
-				pair.second.isConnected ? "True" : "False",
-				pair.second.isRecording ? "True" : "False",
-				pair.second.isSelected ? "True" : "False",
-				pair.second.showPlot ? "True" : "False",
-				pair.second.userWantsToConnect ? "True" : "False");
-		}
-		for (const auto& pair : oscilloscopeIndex)
-		{
-			string deviceId = pair.first;
-			ImGui::Text("Device %s should have plot %d", deviceId.c_str(), pair.second);
-		}
-		ImGui::Text("Found packet of type: %s", testString.c_str());
-		ImGui::End();
-	}
-	
-
-}
-
-void ofApp2::drawOscilloscopes2()
-{
-	for (int i = 0; i < scopeWins0.size(); i++)
-	{
-		scopeWins0[i].plot();
-	}
-	for (int i = 0; i < scopeWins1.size(); i++)
-	{
-		scopeWins1[i].plot();
-	}
-	for (int i = 0; i < scopeWins2.size(); i++)
-	{
-		scopeWins2[i].plot();
-	}
-	for (int i = 0; i < scopeWins3.size(); i++)
-	{
-		scopeWins3[i].plot();
-	}
-}
-
-void ofApp2::connectToDevice(const string& deviceId)
-{
-	auto it = discoveredDevices.find(deviceId);
-	if (it == discoveredDevices.end())
-	{
-		return;
-	}
-	if (!it->second.isConnected)
-	{
-		int8_t success = emotiBitWiFi.connect2(deviceId);
-		if (success > -1) it->second.isConnected = true;
-		ofLogNotice("ofApp2") << "Connection was established = " << it->second.isConnected;
-	}
-
-}
-
-void ofApp2::clearOscilloscopes(int indexToClear)
-{
-	ofLogNotice("ofApp2") << "Clearing of oscilloscopes was called" << endl;
-	vector<ofxMultiScope>* oscilloscopeToClear = nullptr;
-	switch (indexToClear)
-	{
-		case 0: oscilloscopeToClear = &scopeWins0; break;
-		case 1: oscilloscopeToClear = &scopeWins1; break;
-		case 2: oscilloscopeToClear = &scopeWins2; break;
-		case 3: oscilloscopeToClear = &scopeWins3; break;
-		default: return;
-	}
-	for (int i = 0; i < (*oscilloscopeToClear).size(); i++)
-	{
-		(*oscilloscopeToClear).at(i).clearData();
-	}
-
-	//TODO: Implement the rest of clear oscilloscope i.e. removeDataStream 
-	
-}
-
-void ofApp2::updateDeviceList2()
-{
-	//Iterate over discovered emotibits
-	for (auto it = discoveredDevices.begin(); it != discoveredDevices.end(); it++)
-	{
-		string deviceId = it->first;
-		EmotibitInfo _emotiBitInfo = it->second;
-
-		//Add an entry to oscllioscopeindex (which holds the index of the plot to which the device should send data, -1 for no plot
-		if (oscilloscopeIndex.find(deviceId) == oscilloscopeIndex.end())
-		{
-			oscilloscopeIndex[deviceId] = -1;
-		}
-	}
-
-}
-
-void ofApp2::processSlowResponseMessage2(const string& deviceId, const vector<string>& splitPacket)
-{
-	//Lookup the EmotiBitInfo for this device
-	auto it = discoveredDevices.find(deviceId);
-	if (it == discoveredDevices.end()){return;}
-
-	auto itPlotIndex = oscilloscopeIndex.find(deviceId);
-	if (itPlotIndex == oscilloscopeIndex.end()){return;}
-
-	vector<ofxMultiScope>* oscilloscopeToPlotTo = nullptr;
-	vector<vector<vector<int>>>* bufferSizesOfPlotI = nullptr;
-	vector<vector<vector<int>>>* dataCountsOfPlotI = nullptr;
-	vector<vector<float>>* minYSpansOfPlotI = nullptr;
-	vector<vector<vector<float>>>* yLimsOfPlotI = nullptr;
-	unordered_map<string, vector<int>>* typeTagIndexesOfPlotI = nullptr;
-	vector<vector<vector<string>>>* typeTagsOfPlotI = nullptr;
-	switch (itPlotIndex->second)
-	{
-		case 0: oscilloscopeToPlotTo = &scopeWins0; bufferSizesOfPlotI = &bufferSizes0; dataCountsOfPlotI = &dataCounts0; minYSpansOfPlotI = &minYSpans0; yLimsOfPlotI = &yLims0; typeTagIndexesOfPlotI = &typeTagIndexes0; typeTagsOfPlotI = &typeTags0; break;
-		case 1: oscilloscopeToPlotTo = &scopeWins1; bufferSizesOfPlotI = &bufferSizes1; dataCountsOfPlotI = &dataCounts1; minYSpansOfPlotI = &minYSpans1; yLimsOfPlotI = &yLims1; typeTagIndexesOfPlotI = &typeTagIndexes0; typeTagsOfPlotI = &typeTags0; break;
-		case 2: oscilloscopeToPlotTo = &scopeWins2; bufferSizesOfPlotI = &bufferSizes2; dataCountsOfPlotI = &dataCounts2; minYSpansOfPlotI = &minYSpans2; yLimsOfPlotI = &yLims2; typeTagIndexesOfPlotI = &typeTagIndexes0; typeTagsOfPlotI = &typeTags0; break;
-		case 3: oscilloscopeToPlotTo = &scopeWins3; bufferSizesOfPlotI = &bufferSizes3; dataCountsOfPlotI = &dataCounts3; minYSpansOfPlotI = &minYSpans3; yLimsOfPlotI = &yLims3; typeTagIndexesOfPlotI = &typeTagIndexes0; typeTagsOfPlotI = &typeTags0; break;
-		default: return; //No oscilloscopeIndex assigned in OscilloscopeControl 
-	}
-	
-
-	EmotibitInfo& deviceInfos = it->second;
-
-	EmotiBitPacket::Header packetHeader;
-	if (EmotiBitPacket::getHeader(splitPacket, packetHeader))
-	{
-		if (packetHeader.dataLength >= MAX_BUFFER_LENGTH)
-		{
-			bufferUnderruns++;
-			cout << "**** POSSIBLE BUFFER UNDERRUN EVENT " << bufferUnderruns << ", " << packetHeader.dataLength << " ****" << endl;
-		}
-		testString = packetHeader.typeTag;
-		ofLogNotice("ofApp2") << "Packet found of type " << packetHeader.typeTag << " from emotibit " << deviceId;
-		//Add streams to plot if data is detected and not already added
-		if (packetHeader.typeTag.compare(EmotiBitPacket::TypeTag::THERMOPILE) == 0 && (*typeTagIndexesOfPlotI).find(EmotiBitPacket::TypeTag::THERMOPILE) == (*typeTagIndexesOfPlotI).end())
-		{
-			addDataStream(EmotiBitPacket::TypeTag::THERMOPILE);
-		}
-		if (packetHeader.typeTag.compare(EmotiBitPacket::TypeTag::TEMPERATURE_1) == 0 && (*typeTagIndexesOfPlotI).find(EmotiBitPacket::TypeTag::TEMPERATURE_1) == (*typeTagIndexesOfPlotI).end())
-		{
-			addDataStream(EmotiBitPacket::TypeTag::TEMPERATURE_1);
-		}
-
-		auto indexPtr = (*typeTagIndexesOfPlotI).find(packetHeader.typeTag);
-		if (indexPtr != (*typeTagIndexesOfPlotI).end())
-		{
-			vector<vector<float>> data;
-			int w = indexPtr->second.at(0); //scope window index
-			int s = indexPtr->second.at(1); // scope index
-			int p = indexPtr->second.at(2); //plot index
-			data.resize((*typeTagsOfPlotI).at(w).at(s).size());
-
-			ofLogNotice("ofApp2:ProcessSlowResponseMessage2") << "Scope Window =  " << w << " and scope index = " << s << " and plot index = " << p;
-
-			vector<string> oscAddresses;
-			vector<ofxOscMessage> oscMessages;
-			if (sendOsc)//Prepare Osc message
-			{
-				oscAddresses = oscPatchboard.patchcords[packetHeader.typeTag];
-				oscMessages.resize(oscAddresses.size());
-				for (int a = 0; a < oscAddresses.size();a++)
-				{
-					oscMessages.at(a).setAddress(oscAddresses.at(a));
-				}
-			}
-
-			for (size_t n = EmotiBitPacket::headerLength; n < splitPacket.size(); n++)
-			{
-				float value = ofToFloat(splitPacket.at(n));
-				data.at(p).push_back(value);
-
-				if (sendLsl)
-				{
-					vector<float> lslSample(1, value);
-					emotibitLsl.addSample(lslSample, packetHeader.typeTag, deviceId);
-				}
-
-				if (sendOsc)
-				{
-					for (int a = 0; a < oscMessages.size(); a++)
-					{
-						oscMessages.at(a).addFloatArg(value);
-					}
-				}
-			}
-
-			if (sendOsc)
-			{
-				for (int a = 0; a < oscMessages.size(); a++)
-				{
-					oscSender.sendMessage(oscMessages.at(a));
-				}
-			}
-
-			if (!isPaused)
-			{
-				processAperiodicData2(deviceId, packetHeader.typeTag, data.at(p));
-				bool isAperiodic = false;
-				for (uint8_t i = 0; i < EmotiBitPacket::TypeTagGroups::NUM_APERIODIC; i++)
-				{
-					if (packetHeader.typeTag.compare(EmotiBitPacket::TypeTagGroups::APERIODIC[i]) == 0)
-					{
-						isAperiodic = true;
-						break;
-					}
-				}
-				if (!isAperiodic)
-				{
-					ofLogNotice("ofApp2:ProcessSlowResponseMessage2") << "Data is not aperiodic and will be plotted to " << oscilloscopeIndex.find(deviceId) ->second;
-					(*oscilloscopeToPlotTo).at(w).scopes.at(s).updateData(data);
-				}
-			}
-
-
-			(*bufferSizesOfPlotI).at(w).at(s).at(p) = packetHeader.dataLength;
-			(*dataCountsOfPlotI).at(w).at(s).at(p) += packetHeader.dataLength;
-
-			//Special autscaling for EDA data
-			if (!DEBUGGING && packetHeader.typeTag.compare(EmotiBitPacket::TypeTag::EDA) == 0 && !data.at(p).empty())
-			{
-				(*minYSpansOfPlotI).at(w).at(s) = 0.1f * pow(data.at(p).at(0), 1.5f);
-				if ((*yLimsOfPlotI).at(w).at(s).at(0) == (*yLimsOfPlotI).at(w).at(s).at(1))
-				{
-					(*oscilloscopeToPlotTo).at(w).scopes.at(s).autoscaleY(true, (*minYSpansOfPlotI).at(w).at(s));
-				}
-			}
-		}
-		else
-		{
-			/*
-			ofLogNotice("PacketHeader") << "Header type: " << packetHeader.typeTag << " (length: " << packetHeader.typeTag.size() << ")";
-			for (size_t i = 0; i < packetHeader.typeTag.size(); i++)
-			{
-				ofLogNotice("PacketHeaderTTBytes") << "PacketHeaderTypetag[" << i << "] = " << int(packetHeader.typeTag[i]);
-			}
-			*/
-			//Process non plotting messages
-			if (packetHeader.typeTag.compare(EmotiBitPacket::TypeTag::BATTERY_VOLTAGE) == 0)
-			{
-				deviceInfos.currentBatteryStatus = splitPacket.at(6) + "V";
-			}
-			else if(packetHeader.typeTag.compare(EmotiBitPacket::TypeTag::BATTERY_PERCENT) == 0)
-			{
-				deviceInfos.currentBatteryStatus = splitPacket.at(6) + "%";
-			}
-			else if (packetHeader.typeTag.compare(EmotiBitPacket::TypeTag::EMOTIBIT_MODE) == 0)
-			{
-				processModePacket(deviceId, splitPacket);
-			}
-			else if (packetHeader.typeTag.compare(EmotiBitPacket::TypeTag::DATA_CLIPPING) == 0)
-			{
-				for (size_t n = EmotiBitPacket::headerLength; n < splitPacket.size(); n++)
-				{
-					for (size_t w = 0; w < (*typeTagsOfPlotI).size(); w++)
-					{
-						for (size_t s = 0; s < (*typeTagsOfPlotI).at(w).size();s++)
-						{
-							for (size_t p = 0; p < (*typeTagsOfPlotI).at(w).at(s).size();p++)
-							{
-								if (splitPacket.at(n).compare((*typeTagsOfPlotI).at(w).at(s).at(p)) == 0)
-								{
-									deviceInfos.clippingCount++;
-								}
-							}
-						}
-					}
-				}
-			}
-			else if (packetHeader.typeTag.compare(EmotiBitPacket::TypeTag::DATA_OVERFLOW) == 0)
-			{
-				for (size_t n = EmotiBitPacket::headerLength; n < splitPacket.size(); n++)
-				{
-					for (size_t w = 0; w < (*typeTagsOfPlotI).size(); w++)
-					{
-						for (size_t s = 0; s < (*typeTagsOfPlotI).at(w).size();s++)
-						{
-							for (size_t p = 0; p < (*typeTagsOfPlotI).at(w).at(s).size();p++)
-							{
-								if (splitPacket.at(n).compare((*typeTagsOfPlotI).at(w).at(s).at(p)) == 0)
-								{
-									deviceInfos.overflowCount++;
-								}
-							}
-						}
-					}
-				}
-			}
-			else if (packetHeader.typeTag.compare(EmotiBitPacket::TypeTag::RESET) == 0)
-			{
-				//TODO Handle reset behaviour
-			}
-		}
-	}
-}
-
-void ofApp2::processAperiodicData2(const string& deviceId, std::string signalId, std::vector<float> data)
-{
-	auto it = oscilloscopeIndex.find(deviceId);
-	if (it == oscilloscopeIndex.end()) return;
-
-	vector<ofxMultiScope>* oscilloscopeToUpdate = nullptr;
-	unordered_map<string, vector<int>>* typeTagIndexesForPlotI = nullptr;
-	vector<vector<vector<string>>>* typeTagsForPlotI = nullptr;
-	switch (it->second)
-	{
-	case 0: oscilloscopeToUpdate = &scopeWins0; typeTagIndexesForPlotI = &typeTagIndexes0; typeTagsForPlotI = &typeTags0 ;break;
-	case 1: oscilloscopeToUpdate = &scopeWins1; typeTagIndexesForPlotI = &typeTagIndexes1; typeTagsForPlotI = &typeTags1 ;break;
-	case 2: oscilloscopeToUpdate = &scopeWins2; typeTagIndexesForPlotI = &typeTagIndexes2; typeTagsForPlotI = &typeTags2 ;break;
-	case 3: oscilloscopeToUpdate = &scopeWins3; typeTagIndexesForPlotI = &typeTagIndexes3; typeTagsForPlotI = &typeTags3 ;break;
-	default: return;
-	}
-
-
-	std::vector<float> periodizedData; // cleared before update inside every update call
-	for (int i = 0; i < periodizerList.size(); i++)
-	{
-		// update() returns size of data which needs to be added into the plot buffers
-		if (periodizerList.at(i).update(signalId, data, periodizedData))
-		{
-			auto indexPtr = (*typeTagIndexesForPlotI).find(periodizerList.at(i).outputSignal);
-			if (indexPtr != (*typeTagIndexesForPlotI).end())
-			{
-				int w = indexPtr->second.at(0); // Scope window(multiscope)
-				int s = indexPtr->second.at(1); // Scope
-				int p = indexPtr->second.at(2); // Plot
-				std::vector<std::vector<float>> plotData;
-				plotData.resize((*typeTagsForPlotI).at(w).at(s).size());
-				plotData.at(p) = periodizedData;
-				// Add data to oscilloscope
-				(*oscilloscopeToUpdate).at(w).scopes.at(s).updateData(plotData);
-			}
-		}
-	}
-}
-
-void ofApp2::processModePacket(const string& deviceId, vector<string> splitPacket)
-{
-	auto it = discoveredDevices.find(deviceId);
-	if (it == discoveredDevices.end())
-	{
-		return;
-	}
-	EmotibitInfo& deviceInfos = it->second;
-
-	size_t startIndex = EmotiBitPacket::headerLength;
-	string value;
-
-	int pos = EmotiBitPacket::getPacketKeyedValue(splitPacket, EmotiBitPacket::PayloadLabel::RECORDING_STATUS, value);
-	if (pos > -1)
-	{
-		if (value.compare(EmotiBitPacket::TypeTag::RECORD_BEGIN) == 0)
-		{
-			discoveredDevices[deviceId].isRecording = true;
-			// See if we got a filename for the file we're recording to
-			if (pos + 1 < splitPacket.size())
-			{
-				string filename = splitPacket.at(pos + 1);
-				if (filename.size() > 4 && filename.substr(filename.size() - 4, 4).compare(".csv") == 0)
-				{
-					_testingHelper.updateSdCardFilename(filename);
-					discoveredDevices[deviceId].recordingFileName = filename;
-				}
-				else
-				{
-					discoveredDevices[deviceId].recordingFileName = GUI_STRING_RECORDING;
-				}
-			}
-		}
-		else if (value.compare(EmotiBitPacket::TypeTag::RECORD_END) == 0)
-		{
-			discoveredDevices[deviceId].isRecording = false;
-		}
-	}
-
-	if (EmotiBitPacket::getPacketKeyedValue(splitPacket, EmotiBitPacket::PayloadLabel::POWER_STATUS, value) > -1)
-	{
-		value = value.substr(0, 2);
-		
-		if (value.compare(EmotiBitPacket::TypeTag::MODE_NORMAL_POWER) == 0)
-		{
-			discoveredDevices[deviceId].currentPowerMode = EmotibitInfo::PowerMode::NORMAL_POWER;
-		}
-		else if (value.compare(EmotiBitPacket::TypeTag::MODE_LOW_POWER) == 0)
-		{
-			discoveredDevices[deviceId].currentPowerMode = EmotibitInfo::PowerMode::LOW_POWER;
-		}
-		else if (value.compare(EmotiBitPacket::TypeTag::MODE_MAX_LOW_POWER) == 0)
-		{
-			discoveredDevices[deviceId].currentPowerMode = EmotibitInfo::PowerMode::MAX_LOW_POWER;
-		}
-		else if (value.compare(EmotiBitPacket::TypeTag::MODE_WIRELESS_OFF) == 0)
-		{
-			discoveredDevices[deviceId].currentPowerMode = EmotibitInfo::PowerMode::WIRELESS_OFF;
-			emotiBitWiFi.disconnect2(deviceId);
-		}
-		else if (value.compare(EmotiBitPacket::TypeTag::MODE_HIBERNATE) == 0)
-		{
-			discoveredDevices[deviceId].currentPowerMode = EmotibitInfo::PowerMode::HIBERNATE;
-			emotiBitWiFi.disconnect2(deviceId);
-		}
-		else
-		{
-			ofLogNotice("ofApp2") << "no comparison was valid" << endl;
-		}
-	}
-}
-
-void ofApp2::centeredText(const std::string& text, float columWidth) {
-	ImVec2 textSize = ImGui::CalcTextSize(text.c_str());
-	float textOffsetX = (columWidth - textSize.x) * 0.5f;
-	ImGui::SetCursorPosX(ImGui::GetCursorPosX() + textOffsetX);
-	ImGui::Text("%s", text.c_str());
-	};
-
-bool ofApp2::uniqueIdUsed(string idToCheck)
-{
-	return (uniqueIds.find(idToCheck) != uniqueIds.end());
-}
-
-const char* ofApp2::stringifyPowerMode(EmotibitInfo::PowerMode modeToStringify)
-{
-	switch (modeToStringify) {
-		case EmotibitInfo::PowerMode::HIBERNATE:
-			return GUI_STRING_HIBERNATE;
-			break;
-		case EmotibitInfo::PowerMode::WIRELESS_OFF:
-			return GUI_STRING_WIRELESS_OFF;
-			break;
-		case EmotibitInfo::PowerMode::MAX_LOW_POWER:
-			return GUI_STRING_MAX_LOW_POWER;
-			break;
-		case EmotibitInfo::PowerMode::LOW_POWER:
-			return GUI_STRING_LOW_POWER;
-			break;
-		case EmotibitInfo::PowerMode::NORMAL_POWER:
-			return GUI_STRING_NORMAL_POWER;
-			break;
-		default:
-			return GUI_STRING_UNKNOWN_MODE;
-			break;
-	}
-}
-
-#pragma endregion
