@@ -6,9 +6,12 @@
 #include <memory>
 #include <mutex>
 #include <thread>
+#include <queue>
+#include <set>
 #include "ofxNetwork.h"
 #include "EmotiBitPacket.h"
 #include "EmotiBitComms.h"
+#include "ofUtils.h"
 
 enum class PowerMode {
 	HIBERNATE,
